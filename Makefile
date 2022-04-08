@@ -2,7 +2,7 @@ CC=gcc
 FLAGS=-Wall -O3 -g -mbmi2  -mavx2 -march=native -fopenmp
 
 .PHONY: all
-all: ppd
+all: ppd statistics
 
 
 problem.o: problem.c problem.h board.h
@@ -21,8 +21,10 @@ solver.o: solver.c solver.h
 ppd: solver.o board.o piece.o problem.o main.c
 	$(CC) $(FLAGS) -o $@ main.c solver.o board.o piece.o problem.o 
 
+statistics: solver.o board.o piece.o problem.o statistics.c 
+	$(CC) $(FLAGS) -o $@ statistics.c solver.o board.o piece.o problem.o 
 
 
 .PHONY: clean
 clean:
-	rm *.o ppd
+	rm *.o ppd statistics
