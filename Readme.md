@@ -22,7 +22,7 @@ $ ./pad mar 14 faceup
 >The build requires OpenMP installed
 
 ### Example Run
-[![asciicast](https://asciinema.org/a/sqAoADHr3XdIZLPSTEugVNRaI.svg)](https://asciinema.org/a/sqAoADHr3XdIZLPSTEugVNRaI)
+![Asciicast Demo](./demo/demo.svg)
 
 ## The Game
 ### Standard Board
