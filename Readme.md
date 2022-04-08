@@ -87,5 +87,8 @@ $ ./pad mar 14 faceup
 
 
 
-
-
+# Todo
+ - [ ] Add easier support for Multiple Piece types
+ - [ ] Support for alternate board layouts
+ - [ ] Support for Days of week
+ - [ ] Include tool for validating board and piece choice compatibility
