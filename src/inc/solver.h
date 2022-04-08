@@ -16,18 +16,18 @@ struct solutions {
   board_t problem;
 
   // Current working piece
-  ssize_t current_level;
+  size_t current_level;
 
   // Array current stack of solutions pattern
-  ssize_t sol_pattern_index[N_PIECES];
+  size_t sol_pattern_index[N_PIECES];
 
-  ssize_t sol_patterns_num[N_PIECES]; // Total number of subsolutions
+  size_t sol_patterns_num[N_PIECES]; // Total number of subsolutions
   piece_t *sol_patterns[N_PIECES]; // Viable solution patterns
   
   piece_t *sub_solutions[N_PIECES];
 
   // Found Valid soutions
-  ssize_t num_solutions;
+  size_t num_solutions;
   solution_t *solutions;
 };
 

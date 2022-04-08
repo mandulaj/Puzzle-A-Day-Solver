@@ -1,30 +1,24 @@
 CC=gcc
-FLAGS=-Wall -O3 -g -mbmi2  -mavx2 -march=native -fopenmp
+FLAGS=-Wall -std=c11 -O3 -g -mbmi2  -mavx2 -march=native -fopenmp -I ./src/inc  -Lbuild
+
+BUILD_DIR=build
+SRC_DIR=src
+
 
 .PHONY: all
 all: pad statistics
 
 
-problem.o: problem.c problem.h board.h
-	${CC} ${FLAGS} -c -o $@ problem.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(FLAGS) -c -o $@ $<
 
-piece.o: piece.c piece.h
-	${CC} ${FLAGS} -c -o $@ piece.c
+pad: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR)/problem.o $(BUILD_DIR)/pad.o
+	$(CC) $(FLAGS) -o $@ $^
 
-board.o: board.c board.h
-	${CC} ${FLAGS} -c -o $@ board.c
-
-
-solver.o: solver.c solver.h
-	$(CC) $(FLAGS) -c -o $@ solver.c 
-
-pad: solver.o board.o piece.o problem.o main.c
-	$(CC) $(FLAGS) -o $@ main.c solver.o board.o piece.o problem.o 
-
-statistics: solver.o board.o piece.o problem.o statistics.c 
-	$(CC) $(FLAGS) -o $@ statistics.c solver.o board.o piece.o problem.o 
+statistics: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR)/problem.o $(BUILD_DIR)/statistics.o
+	$(CC) $(FLAGS) -o $@ $^
 
 
 .PHONY: clean
 clean:
-	rm *.o pad statistics
+	rm -f *.o build/* pad statistics

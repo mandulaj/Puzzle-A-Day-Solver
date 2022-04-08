@@ -84,7 +84,7 @@ void destroy_solutions(struct solutions *sol) {
 
 void push_solution(struct solutions *sol) {
 
-  for (ssize_t i = 0; i < N_PIECES; i++) {
+  for (size_t i = 0; i < N_PIECES; i++) {
     sol->solutions[sol->num_solutions].pieces[i] =
         sol->sol_patterns[i][sol->sol_pattern_index[i]];
   }
@@ -93,7 +93,7 @@ void push_solution(struct solutions *sol) {
 }
 
 void solve_rec(struct solutions *sol, board_t problem) {
-  ssize_t current_level = sol->current_level;
+  size_t current_level = sol->current_level;
 
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   piece_t pp_and_buffer[8] __attribute__((aligned(32)));
@@ -101,7 +101,7 @@ void solve_rec(struct solutions *sol, board_t problem) {
 
   piece_t *p_patterns = sol->sol_patterns[current_level];
 
-  for (ssize_t i = 0; i < sol->sol_patterns_num[current_level]; i += 4) {
+  for (size_t i = 0; i < sol->sol_patterns_num[current_level]; i += 4) {
     __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
     p_patterns += 4;
 
@@ -111,7 +111,7 @@ void solve_rec(struct solutions *sol, board_t problem) {
     __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
     _mm256_store_si256((__m256i *)&pp_or_buffer, vec_pp_or);
 
-    for (ssize_t j = 0; j < 4; j++) {
+    for (size_t j = 0; j < 4; j++) {
 
       if (pp_and_buffer[j] == 0) {
         sol->sol_pattern_index[current_level] = i + j;
