@@ -1,8 +1,8 @@
 CC=gcc
-FLAGS=-Wall -O2 -mbmi2  -mavx2 -march=native -fopenmp
+FLAGS=-Wall -O3 -g -mbmi2  -mavx2 -march=native -fopenmp
 
 .PHONY: all
-all: solver
+all: ppd
 
 
 problem.o: problem.c problem.h board.h
@@ -15,10 +15,14 @@ board.o: board.c board.h
 	${CC} ${FLAGS} -c $@ board.c
 
 
-solver: solver.c solver.h board.o piece.o problem.o
-	$(CC) $(FLAGS) -o $@ solver.c board.o piece.o problem.o
+solver.o: solver.c solver.h
+	$(CC) $(FLAGS) -c $@ solver.c 
+
+ppd: solver.o board.o piece.o problem.o main.c
+	$(CC) $(FLAGS) -o $@ main.c solver.o board.o piece.o problem.o 
+
 
 
 .PHONY: clean
 clean:
-	rm *.o solver
+	rm *.o ppd
