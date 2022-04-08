@@ -15,8 +15,8 @@ The standard puzzle formulation from this Kickstarter [A-Puzzle-A-Day](https://w
 $ # Building using Make
 $ make
 $ 
-$ # Find solutions for 2 August with all tiles facing up
-$ ./pad mar 14 faceup
+$ # Find solutions for 14 March with all tiles facing down
+$ ./pad mar 14 facedown
 ```
 
 >The build requires OpenMP installed
