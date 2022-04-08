@@ -15,14 +15,6 @@ int isNumber(char s[]) {
   return 1;
 }
 
-char *reverse_lookup[] = {
-    "",    "",   "",   "",    "",    "",    "",    "",    "",    "",    "",
-    "",    "",   "31", "30",  "29",  "",    "28",  "27",  "26",  "25",  "24",
-    "23",  "22", "",   "21",  "20",  "19",  "18",  "17",  "16",  "15",  "",
-    "14",  "13", "12", "11",  "10",  "9",   "8",   "",    "7",   "6",   "5",
-    "4",   "3",  "2",  "1",   "",    "",    "Dec", "Nov", "Oct", "Sep", "Aug",
-    "Jul", "",   "",   "Jun", "May", "Apr", "Mar", "Feb", "Jan"};
-
 uint32_t parse_location(char *str) {
   char *months[] = {"jan", "feb", "mar", "apr", "may", "jun",
                     "jul", "aug", "sep", "oct", "nov", "dec"};
@@ -120,20 +112,4 @@ int main(int argc, char *argv[]) {
   }
 
   destroy_solutions(&sol);
-
-  // #pragma omp parallel for schedule(dynamic)
-  //   for (int month = 1; month <= 12; month++) {
-  //     for (int day = 1; day <= 31; day++) {
-
-  //       board_t problem = make_problem(month_location(month),
-  //       day_location(day)); struct solutions sol;
-
-  //       init_solutions(&sol, problem, restrictions);
-
-  //       uint64_t num = solve(&sol);
-
-  //       printf("%d.%d. %ld solutions\n", day, month, num);
-  //       destroy_solutions(&sol);
-  //     }
-  // }
 }

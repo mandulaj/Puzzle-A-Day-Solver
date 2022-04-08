@@ -23,6 +23,24 @@ uint32_t day_location(uint32_t day) {
   }
 }
 
+uint32_t index_location(uint32_t index) {
+  if (index < 6) {
+    return 63 - index;
+  } else if (index < 12) {
+    return 61 - index;
+  } else if (index < 19) {
+    return 59 - index;
+  } else if (index < 26) {
+    return 58 - index;
+  } else if (index < 33) {
+    return 57 - index;
+  } else if (index < 40) {
+    return 56 - index;
+  } else {
+    return 55 - index;
+  }
+}
+
 board_t make_problem(uint32_t pos1, uint32_t pos2) {
   if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
     return 0xFFFFFFFFFFFFFFFF;

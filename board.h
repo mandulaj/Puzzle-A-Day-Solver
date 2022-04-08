@@ -13,3 +13,5 @@ typedef struct solution_t {
 extern const board_t BLANK_BOARD;
 
 void print_raw(uint64_t soution);
+
+extern char *reverse_lookup[];
