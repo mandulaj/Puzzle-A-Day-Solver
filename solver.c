@@ -12,7 +12,7 @@
 
 #define N_PIECES 8
 
-// #define STANDARD
+#define STANDARD
 
 #ifdef STANDARD
 // Patterns of the 8 shapes
