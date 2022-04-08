@@ -1,6 +1,6 @@
 *.o
 
-ppd
+pad
 statistics
 .vscode
 *.csv
