@@ -6,17 +6,17 @@ all: pad statistics
 
 
 problem.o: problem.c problem.h board.h
-	${CC} ${FLAGS} -c $@ problem.c
+	${CC} ${FLAGS} -c -o $@ problem.c
 
 piece.o: piece.c piece.h
-	${CC} ${FLAGS} -c $@ piece.c
+	${CC} ${FLAGS} -c -o $@ piece.c
 
 board.o: board.c board.h
-	${CC} ${FLAGS} -c $@ board.c
+	${CC} ${FLAGS} -c -o $@ board.c
 
 
 solver.o: solver.c solver.h
-	$(CC) $(FLAGS) -c $@ solver.c 
+	$(CC) $(FLAGS) -c -o $@ solver.c 
 
 pad: solver.o board.o piece.o problem.o main.c
 	$(CC) $(FLAGS) -o $@ main.c solver.o board.o piece.o problem.o 
