@@ -12,7 +12,10 @@
 
 #define N_PIECES 8
 
-// Shapes of the 8 shapes
+// #define STANDARD
+
+#ifdef STANDARD
+// Patterns of the 8 shapes
 const piece_t PIECES[N_PIECES] = {0xE0E0000000000000, 0x8080E00000000000,
                                   0x20E0800000000000, 0xA0E0000000000000,
                                   0x80F0000000000000, 0x20F0000000000000,
@@ -22,9 +25,24 @@ const piece_t PIECES[N_PIECES] = {0xE0E0000000000000, 0x8080E00000000000,
 const piece_properties_t PIECE_PROPS[N_PIECES] = {
     {2, false}, {4, false}, {2, true}, {4, false},
     {4, true},  {4, true},  {4, true}, {4, true}};
+#else
+
+// Patterns of the 8 shapes
+// USING T
+const piece_t PIECES[N_PIECES] = {0xE0E0000000000000, 0x8080E00000000000,
+                                  0x20E0800000000000, 0xA0E0000000000000,
+                                  0x80F0000000000000, 0x20E0200000000000,
+                                  0x30E0000000000000, 0xC0E0000000000000};
+
+// Rotation and symetry porperties of shapes
+const piece_properties_t PIECE_PROPS[N_PIECES] = {
+    {2, false}, {4, false}, {2, true}, {4, false},
+    {4, true},  {4, false}, {4, true}, {4, true}};
+
+#endif
 
 // Max number of piece positions (using a blank board)
-size_t PIECE_POSITION_NUM[N_PIECES] = {48, 80, 82, 96, 151, 154, 154, 196};
+size_t PIECE_POSITION_NUM[N_PIECES] = {48, 80, 82, 96, 151, 144, 154, 196};
 
 void init_solutions(struct solutions *sol, board_t problem,
                     struct solution_restrictions restrictions) {
