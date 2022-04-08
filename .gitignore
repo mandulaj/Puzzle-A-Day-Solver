@@ -1,0 +1,6 @@
+*.o
+
+ppd
+statistics
+.vscode
+*.csv
