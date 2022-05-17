@@ -111,5 +111,10 @@ int main(int argc, char *argv[]) {
     print_solution(&sol.solutions[i], BLANK_BOARD);
   }
 
+  // Also print at the bottom if we have too many solutions
+  if(num > 3) {
+    printf("%s %s - Found %ld solutions:\n", reverse_lookup[location1],
+         reverse_lookup[location2], num);
+  }
   destroy_solutions(&sol);
 }
