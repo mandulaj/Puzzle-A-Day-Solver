@@ -22,7 +22,7 @@ int main() {
     for (int day = 1; day <= 31; day++) {
 
       problem_t problem;
-      make_from_date(&problem, day_location(day), month_location(month));
+      make_from_date(&problem, day, month);
       solutions_t sol1;
       solutions_t sol2;
       solutions_t sol3;
