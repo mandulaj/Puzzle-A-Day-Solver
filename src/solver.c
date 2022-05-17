@@ -10,81 +10,65 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define N_PIECES 8
+#define MAX_NUM_SOLUTIONS 2048
 
-#define STANDARD
-
-#ifdef STANDARD
-// Patterns of the 8 shapes
-const piece_t PIECES[N_PIECES] = {0xE0E0000000000000, 0x8080E00000000000,
-                                  0x20E0800000000000, 0xA0E0000000000000,
-                                  0x80F0000000000000, 0x20F0000000000000,
-                                  0x30E0000000000000, 0xC0E0000000000000};
-
-// Rotation and symetry porperties of shapes
-const piece_properties_t PIECE_PROPS[N_PIECES] = {
-    {2, false}, {4, false}, {2, true}, {4, false},
-    {4, true},  {4, true},  {4, true}, {4, true}};
-#else
-
-// Patterns of the 8 shapes
-// USING T
-const piece_t PIECES[N_PIECES] = {0xE0E0000000000000, 0x8080E00000000000,
-                                  0x20E0800000000000, 0xA0E0000000000000,
-                                  0x80F0000000000000, 0x20E0200000000000,
-                                  0x30E0000000000000, 0xC0E0000000000000};
-
-// Rotation and symetry porperties of shapes
-const piece_properties_t PIECE_PROPS[N_PIECES] = {
-    {2, false}, {4, false}, {2, true}, {4, false},
-    {4, true},  {4, false}, {4, true}, {4, true}};
-
-#endif
-
-// Max number of piece positions (using a blank board)
-size_t PIECE_POSITION_NUM[N_PIECES] = {48, 80, 82, 96, 151, 144, 154, 196};
-
-void init_solutions(struct solutions *sol, board_t problem,
+void init_solutions(solutions_t *sol, problem_t *problem,
                     struct solution_restrictions restrictions) {
   // Initialize problem formulation
-  sol->problem = problem;
+
+  // printf("Popcount: %d\n",
+  //  __builtin_popcountl(problem->problem ^ problem->blank));
+  // print_raw(problem->problem ^ problem->blank);
+
+  sol->problem = problem->problem;
   sol->num_solutions = 0;
   sol->current_level = 0;
+  sol->n_pieces = problem->n_pieces;
 
   // Allocate memory for subsolutions
-  for (int i = 0; i < N_PIECES; i++) {
+  for (int i = 0; i < sol->n_pieces; i++) {
     sol->sol_patterns_num[i] = 0;
     sol->sol_pattern_index[i] = 0;
     sol->sol_patterns[i] =
-        aligned_alloc(32, PIECE_POSITION_NUM[i] * sizeof(piece_t));
+        aligned_alloc(32, problem->piece_position_num[i] * sizeof(piece_t));
     if (sol->sol_patterns[i] == NULL) {
       printf("Failed ot allocate viable_sub_solutions array.\n");
       exit(1);
     }
-    memset(sol->sol_patterns[i], 0xFF, PIECE_POSITION_NUM[i] * sizeof(piece_t));
+    memset(sol->sol_patterns[i], 0xFF,
+           problem->piece_position_num[i] * sizeof(piece_t));
 
     // Optimized sol_patterns positions (eliminating invalid positions)
     sol->sol_patterns_num[i] =
-        make_positions(PIECES[i], PIECE_PROPS[i], sol->problem,
-                       sol->sol_patterns[i], restrictions);
+        make_positions(problem->pieces[i], problem->piece_props[i],
+                       sol->problem, sol->sol_patterns[i], restrictions);
   }
 
-  sol->solutions = calloc(512, sizeof(solution_t));
+  // for (int i = 0; i < sol->n_pieces; i++) {
+  //   printf("Positions: %ld\n\n", sol->sol_patterns_num[i]);
+  //   print_raw(problem->pieces[i]);
+  // }
+
+  sol->solutions = calloc(MAX_NUM_SOLUTIONS, sizeof(solution_t));
   if (sol->solutions == NULL) {
     printf("Failed ot allocate solutions array.\n");
   }
 }
 
-void destroy_solutions(struct solutions *sol) {
-  for (int i = 0; i < N_PIECES; i++) {
+void destroy_solutions(solutions_t *sol) {
+  for (int i = 0; i < sol->n_pieces; i++) {
     free(sol->sol_patterns[i]);
   }
   free(sol->solutions);
 }
 
-void push_solution(struct solutions *sol) {
+void push_solution(solutions_t *sol) {
 
-  for (size_t i = 0; i < N_PIECES; i++) {
+  if (sol->num_solutions > MAX_NUM_SOLUTIONS) {
+    printf("Found too may solutions\n!");
+    exit(1);
+  }
+  for (size_t i = 0; i < sol->n_pieces; i++) {
     sol->solutions[sol->num_solutions].pieces[i] =
         sol->sol_patterns[i][sol->sol_pattern_index[i]];
   }
@@ -92,7 +76,7 @@ void push_solution(struct solutions *sol) {
   // printf("Found solution %ld!\n", sol->num_solutions);
 }
 
-void solve_rec(struct solutions *sol, board_t problem) {
+static void solve_rec(solutions_t *sol, board_t problem) {
   size_t current_level = sol->current_level;
 
   __m256i vec_problem = _mm256_set1_epi64x(problem);
@@ -116,7 +100,7 @@ void solve_rec(struct solutions *sol, board_t problem) {
       if (pp_and_buffer[j] == 0) {
         sol->sol_pattern_index[current_level] = i + j;
         sol->current_level++;
-        if (sol->current_level >= N_PIECES) {
+        if (sol->current_level >= sol->n_pieces) {
           push_solution(sol);
           sol->current_level -= 2;
           return; // We are at the end, we will not fit anywhere else
@@ -131,7 +115,7 @@ void solve_rec(struct solutions *sol, board_t problem) {
     sol->current_level--;
 }
 
-uint64_t solve(struct solutions *sol) {
+uint64_t solve(solutions_t *sol) {
   solve_rec(sol, sol->problem);
   return sol->num_solutions;
 }
@@ -163,9 +147,9 @@ uint64_t make_positions(piece_t piece, piece_properties_t props,
         current = piece_place_left(current);
         do {
           old = current;
+          // print_2_raw(current, problem);
           if (current & problem) {
             invalid += 1;
-            // print_raw(current);
           } else {
             dest[positions] = current;
             positions += 1;
@@ -190,4 +174,40 @@ uint64_t make_positions(piece_t piece, piece_properties_t props,
   } while (1);
   // printf("Positions: %ld\n", positions);
   return positions;
+}
+
+void print_color_square(int i) {
+  char *colors[] = {"\x1b[41m",  "\x1b[42m", "\x1b[43m", "\x1b[44m",
+                    "\x1b[45m",  "\x1b[46m", "\x1b[47m", "\x1b[103m",
+                    "\x1b[102m", "\x1b[104m"};
+  char *reset = "\x1b[0m";
+
+  printf("%s%s%s", colors[i], "  ", reset);
+}
+
+void print_solution(solution_t *solution, problem_t *problem) {
+  piece_t bit = 0x8000000000000000;
+  int piece = 0;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (bit & problem->blank) {
+        printf("  ");
+      } else {
+        for (piece = 0; piece < problem->n_pieces; piece++) {
+          if (bit & solution->pieces[piece]) {
+            // printf("%d", piece + 1);
+            print_color_square(piece);
+            break;
+          }
+        }
+        if (piece == problem->n_pieces) {
+          const char *repr = problem->reverse_lookup[63 - (i * 8 + j)];
+          printf("%2.2s", repr);
+        }
+      }
+      bit >>= 1;
+    }
+    printf("\n");
+  }
+  printf("\n");
 }

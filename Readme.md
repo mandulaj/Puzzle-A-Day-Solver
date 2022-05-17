@@ -38,6 +38,20 @@ $ ./pad mar 14 facedown
 **************
 ```
 
+### Week Days Board
+```
+**************************
+*Jan Feb Mar Apr May Jun *
+*Jul Aug Sep Oct Nov Dec *****
+*  1   2   3   4   5   6   7 *
+*  8   9  10  11  12  13  14 *
+* 15  16  17  18  19  20  21 *
+* 22  23  24  25  26  27  28 *
+* 29  30  31 Mon Tue Wed Thu *
+**************** Fri Sat Sun *
+               ***************
+```
+
 ### Standard Pieces
 
 1. Symetric + 2 rotations, 48 valid positions
@@ -78,7 +92,7 @@ $ ./pad mar 14 facedown
         # #
     # # #
     ```
-8. Asymetric + 8 rotations, 196 valid positions
+8. Asymetric + 4 rotations, 196 valid positions
 
     ```
     # #
@@ -86,6 +100,60 @@ $ ./pad mar 14 facedown
     ```
 
 
+
+### WeekDay Pieces
+
+1. Symetric + 2 rotations, 55 valid positions
+    ``` 
+    # # # #
+    ```
+2. Symetric + 4 rotations, 100 valid positions
+    ```
+    #
+    #
+    # # #
+    ```
+3. Asymetric + 2 rotations, 102 valid positions
+    ```
+        #
+    # # #
+    #
+    ```
+4. Symetric + 4 rotations, 102 valid positions
+    ```
+        #
+    # # #
+        #
+    ```
+5. Symetric + 4 rotations, 118 valid positions
+    ```
+    #   #
+    # # #
+    ```
+6. Asymetric + 2 rotations, 122 valid positions
+    ```
+    # #
+      # # 
+    ```
+7. Asymetric + 4 rotations, 191 valid positions
+    ```
+    #
+    # # # #
+    ```
+8. Asymetric + 4 rotations, 194 valid positions
+    ``` 
+    # # #
+        # #
+    ```
+9. Asymetric + 4 rotations, 240 valid positions
+    ```
+    # #
+    # # #
+10. Asymetric + 4 rotations, 242 valid positions
+    ```
+    #
+    # # #
+    ```
 
 # Todo
  - [ ] Add easier support for Multiple Piece types

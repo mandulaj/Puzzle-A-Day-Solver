@@ -11,35 +11,36 @@ struct solution_restrictions {
   bool use_facedown;
 };
 
-struct solutions {
+typedef struct solutions_t {
   // Problem
   board_t problem;
 
   // Current working piece
   size_t current_level;
 
-  // Array current stack of solutions pattern
-  size_t sol_pattern_index[N_PIECES];
+  size_t n_pieces;
 
-  size_t sol_patterns_num[N_PIECES]; // Total number of subsolutions
-  piece_t *sol_patterns[N_PIECES]; // Viable solution patterns
+  // Array current stack of solutions pattern
+  size_t sol_pattern_index[MAX_PIECES];
+
+  size_t sol_patterns_num[MAX_PIECES]; // Total number of subsolutions
+  piece_t *sol_patterns[MAX_PIECES]; // Viable solution patterns
   
-  piece_t *sub_solutions[N_PIECES];
+  piece_t *sub_solutions[MAX_PIECES];
 
   // Found Valid soutions
   size_t num_solutions;
   solution_t *solutions;
-};
+} solutions_t;
 
-void init_solutions(struct solutions *sol, board_t problem,  struct solution_restrictions restrictions);
-void destroy_solutions(struct solutions *sol);
-void push_solution(struct solutions *sol);
+void init_solutions(solutions_t *sol, problem_t *problem,
+                    struct solution_restrictions restrictions);
+void destroy_solutions(solutions_t *sol);
+void push_solution(solutions_t *sol);
 
-void solve_rec(struct solutions *sol, board_t problem);
-
-uint64_t solve(struct solutions *sol);
+uint64_t solve(solutions_t *sol);
 
 uint64_t make_positions(piece_t piece, piece_properties_t props,
                         board_t problem, piece_t *dest, struct solution_restrictions restrictions);
 
-void print_solution(solution_t *solution, board_t board);
+void print_solution(solution_t *solution, problem_t *problem);

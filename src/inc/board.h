@@ -1,17 +1,14 @@
 #pragma once
+#include "piece.h"
 #include <stdint.h>
 
-#define N_PIECES 8
+#define N_PIECES 10
 
 typedef uint64_t board_t;
-typedef uint64_t piece_t;
 
 typedef struct solution_t {
   piece_t pieces[N_PIECES];
 } solution_t;
 
-extern const board_t BLANK_BOARD;
-
 void print_raw(uint64_t soution);
-
-extern char *reverse_lookup[];
+void print_2_raw(uint64_t pattern1, uint64_t pattern2);

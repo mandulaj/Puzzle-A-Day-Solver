@@ -1,17 +1,6 @@
 #include "board.h"
 #include <stdio.h>
 
-const board_t BLANK_BOARD =
-    0b0000001100000011000000010000000100000001000000010001111111111111;
-
-char *reverse_lookup[] = {
-    "",    "",   "",   "",    "",    "",    "",    "",    "",    "",    "",
-    "",    "",   "31", "30",  "29",  "",    "28",  "27",  "26",  "25",  "24",
-    "23",  "22", "",   "21",  "20",  "19",  "18",  "17",  "16",  "15",  "",
-    "14",  "13", "12", "11",  "10",  "9",   "8",   "",    "7",   "6",   "5",
-    "4",   "3",  "2",  "1",   "",    "",    "Dec", "Nov", "Oct", "Sep", "Aug",
-    "Jul", "",   "",   "Jun", "May", "Apr", "Mar", "Feb", "Jan"};
-
 void print_raw(uint64_t pattern) {
 
   for (int i = 0; i < 8; i++) {
@@ -23,6 +12,32 @@ void print_raw(uint64_t pattern) {
         printf(".");
       }
       pattern <<= 1;
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+void print_2_raw(uint64_t pattern1, uint64_t pattern2) {
+
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      uint64_t bit1 = pattern1 & 0x8000000000000000;
+      uint64_t bit2 = pattern2 & 0x8000000000000000;
+      pattern1 <<= 1;
+      pattern2 <<= 1;
+
+      if (bit1 && bit2) {
+        printf("X");
+        // printf("%s", 0xe296a0);
+      } else if (bit1) {
+        printf("#");
+      } else if (bit2) {
+        printf("@");
+
+      } else {
+        printf(".");
+      }
     }
     printf("\n");
   }
