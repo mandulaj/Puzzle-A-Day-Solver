@@ -30,13 +30,14 @@ typedef struct solutions_t {
 
   // Found Valid soutions
   size_t num_solutions;
+  size_t max_solutions;
   solution_t *solutions;
 } solutions_t;
 
 void init_solutions(solutions_t *sol, problem_t *problem,
                     struct solution_restrictions restrictions);
 void destroy_solutions(solutions_t *sol);
-void push_solution(solutions_t *sol);
+uint64_t push_solution(solutions_t *sol);
 
 uint64_t solve(solutions_t *sol);
 

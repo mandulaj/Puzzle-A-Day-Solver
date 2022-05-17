@@ -10,7 +10,8 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define MAX_NUM_SOLUTIONS 2048
+#define MAX_NUM_SOLUTIONS 10000
+#define SOLUTIONS_BUFFER_SIZE 2048
 
 void init_solutions(solutions_t *sol, problem_t *problem,
                     struct solution_restrictions restrictions) {
@@ -48,8 +49,8 @@ void init_solutions(solutions_t *sol, problem_t *problem,
   //   printf("Positions: %ld\n\n", sol->sol_patterns_num[i]);
   //   print_raw(problem->pieces[i]);
   // }
-
-  sol->solutions = calloc(MAX_NUM_SOLUTIONS, sizeof(solution_t));
+  sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
+  sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
   if (sol->solutions == NULL) {
     printf("Failed ot allocate solutions array.\n");
   }
@@ -62,22 +63,38 @@ void destroy_solutions(solutions_t *sol) {
   free(sol->solutions);
 }
 
-void push_solution(solutions_t *sol) {
+uint64_t push_solution(solutions_t *sol) {
 
-  if (sol->num_solutions > MAX_NUM_SOLUTIONS) {
-    printf("Found too may solutions\n!");
-    exit(1);
+  // Expand solutions buffer if needed
+  if (sol->num_solutions + 1 >= sol->max_solutions) {
+    printf("Increasing solutions buffer size!\n");
+    sol->max_solutions += SOLUTIONS_BUFFER_SIZE;
+    if (sol->max_solutions > MAX_NUM_SOLUTIONS) {
+      printf("Number of solutions over the limit, terminating!\n");
+
+      exit(1);
+    }
+    sol->solutions =
+        realloc(sol->solutions, sol->max_solutions * sizeof(solution_t));
+    if (sol->solutions == NULL) {
+      printf("Failed to increasing number of solutions buffer!\n");
+      exit(1);
+    }
+    return 0;
   }
+
   for (size_t i = 0; i < sol->n_pieces; i++) {
     sol->solutions[sol->num_solutions].pieces[i] =
         sol->sol_patterns[i][sol->sol_pattern_index[i]];
   }
   sol->num_solutions++;
+  return 0;
   // printf("Found solution %ld!\n", sol->num_solutions);
 }
 
-static void solve_rec(solutions_t *sol, board_t problem) {
+static uint64_t solve_rec(solutions_t *sol, board_t problem) {
   size_t current_level = sol->current_level;
+  uint64_t ret;
 
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   piece_t pp_and_buffer[8] __attribute__((aligned(32)));
@@ -102,10 +119,11 @@ static void solve_rec(solutions_t *sol, board_t problem) {
         sol->current_level++;
         if (sol->current_level >= sol->n_pieces) {
           push_solution(sol);
+
           sol->current_level -= 2;
-          return; // We are at the end, we will not fit anywhere else
+          return 0; // We are at the end, we will not fit anywhere else
         } else {
-          solve_rec(sol, pp_or_buffer[j]);
+          ret = solve_rec(sol, pp_or_buffer[j]);
         }
       }
     }
@@ -113,6 +131,7 @@ static void solve_rec(solutions_t *sol, board_t problem) {
 
   if (current_level > 0)
     sol->current_level--;
+  return 0;
 }
 
 uint64_t solve(solutions_t *sol) {

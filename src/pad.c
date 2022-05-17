@@ -110,7 +110,6 @@ int main(int argc, char *argv[]) {
   if (location1 == 0 || location2 == 0 || location3 == 0) {
     exit(1);
   }
-  printf("%d\n", use_t_mode);
 
   if (week_day_mode) {
     res = make_problem_weekday(&problem, location1, location2, location3);
@@ -121,9 +120,6 @@ int main(int argc, char *argv[]) {
       res = make_problem_standard(&problem, location1, location2);
     }
   }
-  // printf("%d\n", res);
-  // print_raw(problem.blank);
-  // print_raw(problem.problem);
 
   init_solutions(&sol, &problem, restrictions);
 
