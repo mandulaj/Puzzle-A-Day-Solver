@@ -1,7 +1,9 @@
 #include "board.h"
+#include "config.h"
 #include "piece.h"
 #include "problem.h"
 #include "solver.h"
+#include "utils.h"
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -57,9 +59,9 @@ void print_usage() {
 
 int main(int argc, char *argv[]) {
   problem_t problem;
+  status_t ret;
   solutions_t sol;
   struct solution_restrictions restrictions = {true, true};
-  bool res;
 
   if (argc < 3 || argc > 6) {
     print_usage();
@@ -112,18 +114,23 @@ int main(int argc, char *argv[]) {
   }
 
   if (week_day_mode) {
-    res = make_problem_weekday(&problem, location1, location2, location3);
+    ret = make_problem_weekday(&problem, location1, location2, location3);
   } else {
     if (use_t_mode) {
-      res = make_problem_t(&problem, location1, location2);
+      ret = make_problem_t(&problem, location1, location2);
     } else {
-      res = make_problem_standard(&problem, location1, location2);
+      ret = make_problem_standard(&problem, location1, location2);
     }
   }
 
-  init_solutions(&sol, &problem, restrictions);
+  ret = init_solutions(&sol, &problem, restrictions);
+  if (ret) {
+    printf("Error: %s\n", get_error_description(ret));
+  }
 
-  uint64_t num = solve(&sol);
+  ret = solve(&sol);
+
+  uint64_t num = sol.num_solutions;
 
   // Print Date
   if (week_day_mode) {

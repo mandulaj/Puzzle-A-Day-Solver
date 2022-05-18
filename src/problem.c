@@ -132,9 +132,9 @@ uint32_t index_location(uint32_t index) {
   }
 }
 
-bool make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
+status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
   if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
-    return false;
+    return WRONG_INPUT;
   }
 
   memcpy(prob, &problem_types[0],
@@ -142,11 +142,11 @@ bool make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
 
   prob->problem =
       prob->blank | ((board_t)0x01 << pos1) | ((board_t)0x01 << pos2);
-  return true;
+  return STATUS_OK;
 }
-bool make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2) {
+status_t make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2) {
   if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
-    return false;
+    return WRONG_INPUT;
   }
 
   memcpy(prob, &problem_types[1],
@@ -154,14 +154,14 @@ bool make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2) {
 
   prob->problem =
       prob->blank | ((board_t)0x01 << pos1) | ((board_t)0x01 << pos2);
-  return true;
+  return STATUS_OK;
 }
 
-bool make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
-                          uint32_t pos3) {
+status_t make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
+                              uint32_t pos3) {
   if (pos1 >= 64 || pos2 >= 64 || pos3 >= 64 || pos1 == pos2 || pos1 == pos3 ||
       pos2 == pos3) {
-    return false;
+    return WRONG_INPUT;
   }
 
   memcpy(prob, &problem_types[2],
@@ -169,10 +169,16 @@ bool make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
 
   prob->problem = prob->blank | ((board_t)0x01 << pos1) |
                   ((board_t)0x01 << pos2) | ((board_t)0x01 << pos3);
-  return true;
+  return STATUS_OK;
 }
 
-bool make_from_date(problem_t *prob, uint32_t day, uint32_t month) {
+status_t make_from_date(problem_t *prob, uint32_t day, uint32_t month) {
 
   return make_problem_standard(prob, month_location(month), day_location(day));
+}
+status_t make_from_date_weekday(problem_t *prob, uint32_t day, uint32_t month,
+                                uint32_t wd) {
+
+  return make_problem_weekday(prob, month_location(month), day_location(day),
+                              weekday_location(wd));
 }

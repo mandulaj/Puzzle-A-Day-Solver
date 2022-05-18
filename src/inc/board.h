@@ -1,13 +1,13 @@
 #pragma once
+
+#include "config.h"
 #include "piece.h"
 #include <stdint.h>
-
-#define N_PIECES 10
 
 typedef uint64_t board_t;
 
 typedef struct solution_t {
-  piece_t pieces[N_PIECES];
+  piece_t pieces[MAX_PIECES];
 } solution_t;
 
 void print_raw(uint64_t soution);

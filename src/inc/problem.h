@@ -1,15 +1,13 @@
 #pragma once
 #include <stdlib.h>
-#pragma once
 
 #include "board.h"
 #include "piece.h"
 #include <stdint.h>
 #include <stdio.h>
 
-
-#define MAX_PIECES 10
-
+#include "config.h"
+#include "utils.h"
 
 typedef struct problem_t {
   // Blank board
@@ -37,8 +35,10 @@ uint32_t weekday_location(uint32_t day);
 
 uint32_t index_location(uint32_t index);
 
-bool make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2);
-bool make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2);
-bool make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
-                          uint32_t pos3);
-bool make_from_date(problem_t *prob, uint32_t day, uint32_t month);
+status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2);
+status_t make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2);
+status_t make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
+                              uint32_t pos3);
+status_t make_from_date(problem_t *prob, uint32_t day, uint32_t month);
+status_t make_from_date_weekday(problem_t *prob, uint32_t day, uint32_t month,
+                                uint32_t wd);
