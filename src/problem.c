@@ -127,8 +127,10 @@ uint32_t index_location(uint32_t index) {
     return 57 - index;
   } else if (index < 40) {
     return 56 - index;
-  } else {
+  } else if (index < 47) {
     return 55 - index;
+  } else {
+    return 50 - index;
   }
 }
 

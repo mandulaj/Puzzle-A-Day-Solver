@@ -10,9 +10,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ONLY_VALID_DATES
-#define INCLUDE_WEEKDAYS
-
 int main() {
   struct solution_restrictions restrictions = {true, true};
   struct solution_restrictions restrictions_faceup = {true, false};
@@ -73,7 +70,48 @@ int main() {
 
 #else
 
-#pragma omp parallel for schedule(dynamic)
+#ifdef INCLUDE_WEEKDAYS
+#pragma omp parallel for collapse(3)
+  for (int idx1 = 0; idx1 < 50 - 2; idx1++) {
+    for (int idx2 = idx1 + 1; idx2 < 50 - 1; idx2++) {
+      for (int idx3 = idx2 + 1; idx3 < 50; idx3++) {
+
+        problem_t problem;
+        solutions_t sol1;
+        solutions_t sol2;
+        solutions_t sol3;
+
+        make_problem_weekday(&problem, index_location(idx1),
+                             index_location(idx2), index_location(idx3));
+
+        init_solutions(&sol1, &problem, restrictions);
+        init_solutions(&sol2, &problem, restrictions_faceup);
+        init_solutions(&sol3, &problem, restrictions_facedown);
+
+        solve(&sol1);
+        solve(&sol2);
+        solve(&sol3);
+        uint64_t numTotal = sol1.num_solutions;
+
+        uint64_t numFaceUp = sol2.num_solutions;
+
+        uint64_t numFaceDown = sol3.num_solutions;
+
+        destroy_solutions(&sol1);
+        destroy_solutions(&sol2);
+        destroy_solutions(&sol3);
+
+        printf("%s,%s,%s,%ld, %ld, %ld\n",
+               problem.reverse_lookup[index_location(idx1)],
+               problem.reverse_lookup[index_location(idx2)],
+               problem.reverse_lookup[index_location(idx3)], numTotal,
+               numFaceUp, numFaceDown);
+      }
+    }
+  }
+#else
+
+#pragma omp parallel for schedule(dynamic) collapse(2)
   for (int i1 = 0; i1 < 42; i1++) {
     for (int i2 = i1 + 1; i2 < 43; i2++) {
 
@@ -89,6 +127,8 @@ int main() {
       destroy_solutions(&sol);
     }
   }
+
+#endif
 
 #endif
 }
