@@ -5,16 +5,13 @@
 #include "piece.h"
 #include "problem.h"
 #include "solver.h"
+#include "utils.h"
 #include <immintrin.h>
-#include <omp.h>
 #include <stdbool.h>
 #include <string.h>
 
-#define MAX_NUM_SOLUTIONS 10000
-#define SOLUTIONS_BUFFER_SIZE 2048
-
-void init_solutions(solutions_t *sol, problem_t *problem,
-                    struct solution_restrictions restrictions) {
+status_t init_solutions(solutions_t *sol, const problem_t *problem,
+                        struct solution_restrictions restrictions) {
   // Initialize problem formulation
 
   // printf("Popcount: %d\n",
@@ -53,26 +50,28 @@ void init_solutions(solutions_t *sol, problem_t *problem,
   sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
   if (sol->solutions == NULL) {
     printf("Failed ot allocate solutions array.\n");
+    exit(1);
   }
+  return STATUS_OK;
 }
 
-void destroy_solutions(solutions_t *sol) {
+status_t destroy_solutions(solutions_t *sol) {
   for (int i = 0; i < sol->n_pieces; i++) {
     free(sol->sol_patterns[i]);
   }
   free(sol->solutions);
+  return STATUS_OK;
 }
 
-uint64_t push_solution(solutions_t *sol) {
+status_t push_solution(solutions_t *sol) {
 
   // Expand solutions buffer if needed
   if (sol->num_solutions + 1 >= sol->max_solutions) {
-    printf("Increasing solutions buffer size!\n");
+    // printf("Increasing solutions buffer size!\n");
     sol->max_solutions += SOLUTIONS_BUFFER_SIZE;
     if (sol->max_solutions > MAX_NUM_SOLUTIONS) {
       printf("Number of solutions over the limit, terminating!\n");
-
-      exit(1);
+      return WARNING;
     }
     sol->solutions =
         realloc(sol->solutions, sol->max_solutions * sizeof(solution_t));
@@ -80,7 +79,6 @@ uint64_t push_solution(solutions_t *sol) {
       printf("Failed to increasing number of solutions buffer!\n");
       exit(1);
     }
-    return 0;
   }
 
   for (size_t i = 0; i < sol->n_pieces; i++) {
@@ -88,42 +86,46 @@ uint64_t push_solution(solutions_t *sol) {
         sol->sol_patterns[i][sol->sol_pattern_index[i]];
   }
   sol->num_solutions++;
-  return 0;
   // printf("Found solution %ld!\n", sol->num_solutions);
+  return STATUS_OK;
 }
 
-static uint64_t solve_rec(solutions_t *sol, board_t problem) {
-  size_t current_level = sol->current_level;
-  uint64_t ret;
-
-  __m256i vec_problem = _mm256_set1_epi64x(problem);
-  piece_t pp_and_buffer[8] __attribute__((aligned(32)));
-  piece_t pp_or_buffer[8] __attribute__((aligned(32)));
+static status_t solve_rec(solutions_t *sol, board_t problem) {
+  const size_t current_level = sol->current_level;
+  const size_t num_patterns = sol->sol_patterns_num[current_level];
 
   piece_t *p_patterns = sol->sol_patterns[current_level];
 
-  for (size_t i = 0; i < sol->sol_patterns_num[current_level]; i += 4) {
-    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
-    p_patterns += 4;
+  status_t ret;
 
-    __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
-    _mm256_store_si256((__m256i *)&pp_and_buffer, vec_pp_and);
+  for (size_t i = 0; i < num_patterns; i++) {
+    board_t pp_and = p_patterns[i] & problem;
+    board_t pp_or = p_patterns[i] | problem;
 
-    __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
-    _mm256_store_si256((__m256i *)&pp_or_buffer, vec_pp_or);
+    if (!(pp_and)) {
+      sol->sol_pattern_index[current_level] = i;
 
-    for (size_t j = 0; j < 4; j++) {
-
-      if (pp_and_buffer[j] == 0) {
-        sol->sol_pattern_index[current_level] = i + j;
+      // We placed the last peice so have a full board, push it
+      if (pp_or == 0xFFFFFFFFFFFFFFFF) {
+        ret = push_solution(sol);
+        if (ret) {
+          if (ret == WARNING)
+            break;
+          return ret;
+        }
+        // We are at the end, we will not fit anywhere else
+        sol->current_level--;
+        return STATUS_OK;
+      } else {
+        // Place next piece
         sol->current_level++;
-        if (sol->current_level >= sol->n_pieces) {
-          push_solution(sol);
-
-          sol->current_level -= 2;
-          return 0; // We are at the end, we will not fit anywhere else
-        } else {
-          ret = solve_rec(sol, pp_or_buffer[j]);
+        ret = solve_rec(sol, pp_or);
+        if (ret) {
+          if (ret == WARNING) {
+            break;
+          }
+          printf("Catching error\n");
+          return ret;
         }
       }
     }
@@ -131,12 +133,82 @@ static uint64_t solve_rec(solutions_t *sol, board_t problem) {
 
   if (current_level > 0)
     sol->current_level--;
-  return 0;
+  return STATUS_OK;
 }
 
-uint64_t solve(solutions_t *sol) {
-  solve_rec(sol, sol->problem);
-  return sol->num_solutions;
+static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
+  size_t current_level = sol->current_level;
+  status_t ret;
+
+  __m256i vec_problem = _mm256_set1_epi64x(problem);
+  __m256i vec_zero = _mm256_set1_epi64x(0x0000000000000000);
+
+  piece_t pp_and_buffer[4] __attribute__((aligned(32)));
+  piece_t pp_or_buffer[4] __attribute__((aligned(32)));
+
+  piece_t *p_patterns = sol->sol_patterns[current_level];
+
+  for (size_t i = 0; i < sol->sol_patterns_num[current_level]; i += 4) {
+    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
+
+    __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
+
+    // Set to 0xFFFF.. if any is zero
+    __m256i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
+
+    // If any was zero, test will be false and we check them one at a time
+    if (!_mm256_testz_si256(vec_test_zero, vec_test_zero)) {
+
+      _mm256_store_si256((__m256i *)&pp_and_buffer, vec_pp_and);
+
+      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
+      _mm256_store_si256((__m256i *)&pp_or_buffer, vec_pp_or);
+
+      for (size_t j = 0; j < 4; j++) {
+
+        if (pp_and_buffer[j] == 0) {
+          sol->sol_pattern_index[current_level] = i + j;
+
+          if (pp_or_buffer[j] == 0xFFFFFFFFFFFFFFFF) {
+            ret = push_solution(sol);
+            if (ret) {
+              if (ret == WARNING)
+                break;
+              return ret;
+            }
+
+            sol->current_level--;
+            return STATUS_OK; // We are at the end, we will not fit anywhere
+                              // else
+          } else {
+            sol->current_level++;
+            ret = solve_rec_smdi(sol, pp_or_buffer[j]);
+            if (ret) {
+              if (ret == WARNING) {
+                break;
+              }
+              printf("Catching error\n");
+              return ret;
+            }
+          }
+        }
+      }
+    }
+
+    p_patterns += 4;
+  }
+
+  if (current_level > 0)
+    sol->current_level--;
+  return STATUS_OK;
+}
+
+status_t solve(solutions_t *sol) {
+#if defined(USE_SMDI)
+  return solve_rec_smdi(sol, sol->problem);
+#else
+  return solve_rec(sol, sol->problem);
+#endif
 }
 
 uint64_t make_positions(piece_t piece, piece_properties_t props,
@@ -193,40 +265,4 @@ uint64_t make_positions(piece_t piece, piece_properties_t props,
   } while (1);
   // printf("Positions: %ld\n", positions);
   return positions;
-}
-
-void print_color_square(int i) {
-  char *colors[] = {"\x1b[41m",  "\x1b[42m", "\x1b[43m", "\x1b[44m",
-                    "\x1b[45m",  "\x1b[46m", "\x1b[47m", "\x1b[103m",
-                    "\x1b[102m", "\x1b[104m"};
-  char *reset = "\x1b[0m";
-
-  printf("%s%s%s", colors[i], "  ", reset);
-}
-
-void print_solution(solution_t *solution, problem_t *problem) {
-  piece_t bit = 0x8000000000000000;
-  int piece = 0;
-  for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-      if (bit & problem->blank) {
-        printf("  ");
-      } else {
-        for (piece = 0; piece < problem->n_pieces; piece++) {
-          if (bit & solution->pieces[piece]) {
-            // printf("%d", piece + 1);
-            print_color_square(piece);
-            break;
-          }
-        }
-        if (piece == problem->n_pieces) {
-          const char *repr = problem->reverse_lookup[63 - (i * 8 + j)];
-          printf("%2.2s", repr);
-        }
-      }
-      bit >>= 1;
-    }
-    printf("\n");
-  }
-  printf("\n");
 }
