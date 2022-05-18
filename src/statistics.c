@@ -11,7 +11,7 @@
 #include <string.h>
 
 #define ONLY_VALID_DATES
-// #define INCLUDE_WEEKDAYS
+#define INCLUDE_WEEKDAYS
 
 int main() {
   struct solution_restrictions restrictions = {true, true};
@@ -20,7 +20,7 @@ int main() {
 
 #ifdef ONLY_VALID_DATES
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic) collapse(2)
   for (int day = 1; day <= 31; day++) {
     for (int month = 1; month <= 12; month++) {
 #ifdef INCLUDE_WEEKDAYS

@@ -204,11 +204,13 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
 }
 
 status_t solve(solutions_t *sol) {
+  status_t res;
 #if defined(USE_SMDI)
-  return solve_rec_smdi(sol, sol->problem);
+  res = solve_rec_smdi(sol, sol->problem);
 #else
-  return solve_rec(sol, sol->problem);
+  res = solve_rec(sol, sol->problem);
 #endif
+  return res;
 }
 
 uint64_t make_positions(piece_t piece, piece_properties_t props,
