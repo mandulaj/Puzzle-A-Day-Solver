@@ -10,5 +10,5 @@
 
 // Statistics config
 
-//#define ONLY_VALID_DATES
-#define INCLUDE_WEEKDAYS
+#define ONLY_VALID_DATES
+//#define INCLUDE_WEEKDAYS
