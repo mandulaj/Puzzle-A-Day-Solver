@@ -78,3 +78,29 @@ piece_t piece_sft_down(piece_t piece) {
   }
   return piece;
 }
+
+piece_t get_piece(const piece_t *pieces, size_t n, piece_location_t location) {
+  if (location.piece_id >= n) {
+    return 0x00;
+  }
+
+  piece_t p = pieces[location.piece_id];
+
+  if (location.flip) {
+    p = piece_flip(p);
+  }
+
+  for (int i = 0; i < location.rot && i < 4; i++) {
+    p = piece_rotate(p);
+  }
+
+  p = piece_origin(p);
+
+  for (int x = 0; x < location.x && x < 8; x++) {
+    p = piece_sft_right(p);
+  }
+  for (int y = 0; y < location.y && y < 8; y++) {
+    p = piece_sft_down(p);
+  }
+  return p;
+}

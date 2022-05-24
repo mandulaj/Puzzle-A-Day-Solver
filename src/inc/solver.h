@@ -2,10 +2,7 @@
 
 #include "board.h"
 #include "config.h"
-#include "piece.h"
-#include "problem.h"
 #include "utils.h"
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -40,6 +37,12 @@ typedef struct solutions_t {
 
 status_t init_solutions(solutions_t *sol, const problem_t *problem,
                         struct solution_restrictions restrictions);
+
+status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
+                               struct solution_restrictions restrictions,
+                               piece_location_t *placed_pieces,
+                               size_t n_placed_pieces);
+
 status_t destroy_solutions(solutions_t *sol);
 
 status_t push_solution(solutions_t *sol);
@@ -50,4 +53,6 @@ uint64_t make_positions(piece_t piece, piece_properties_t props,
                         board_t problem, piece_t *dest,
                         struct solution_restrictions restrictions);
 
-void print_solution(solution_t *solution, problem_t *problem);
+status_t check_partial_solution(const problem_t *problem,
+                                const piece_location_t *pieces, size_t n_pieces,
+                                board_t *result);

@@ -1,6 +1,7 @@
 #include "board.h"
 #include "config.h"
 #include "piece.h"
+#include "printing.h"
 #include "problem.h"
 #include "solver.h"
 #include "utils.h"
@@ -9,121 +10,98 @@
 #include <stdio.h>
 #include <string.h>
 
-int isNumber(char s[]) {
-  for (int i = 0; s[i] != '\0'; i++) {
-    if (isdigit(s[i]) == 0)
-      return 0;
-  }
-  return 1;
-}
-
-uint32_t parse_location(char *str) {
-  char *months[] = {"jan", "feb", "mar", "apr", "may", "jun",
-                    "jul", "aug", "sep", "oct", "nov", "dec"};
-
-  char *weekdays[] = {"mon", "tue", "wed", "thr", "fri", "sat", "sun"};
-
-  if (isNumber(str)) {
-    int num = 0;
-    sscanf(str, "%d", &num);
-    if (num >= 1 && num <= 31) {
-      return day_location(num);
-    } else {
-      printf("Day must be between 1 and 31\n");
-      return 0;
-    }
-  } else {
-    for (int i = 0; i < 12; i++) {
-      if (strcmp(months[i], str) == 0) {
-        return month_location(i + 1);
-      }
-    }
-
-    for (int i = 0; i < 7; i++) {
-      if (strcmp(weekdays[i], str) == 0) {
-        return weekday_location(i);
-      }
-    }
-    printf("%s is an invalid weekday or month\n", str);
-
-    return 0;
-  }
-
-  return 1;
-}
-
-void print_usage() {
-  printf("Usage: ./main [day/month/weekday] [day/month/weekday] "
-         "{day/month/weekday} [faceup/facedown] [t]\n");
-}
-
 int main(int argc, char *argv[]) {
   problem_t problem;
   status_t ret;
   solutions_t sol;
   struct solution_restrictions restrictions = {true, true};
 
-  if (argc < 3 || argc > 6) {
+  if (argc < 3) {
     print_usage();
     exit(1);
   }
 
-  bool had_restriction = false;
   bool week_day_mode = false;
   bool use_t_mode = false;
-  uint32_t n_arguments = 0;
 
-  // Last argument is faceup/facedown or t
-  for (int i = 1; i <= 2; i++) {
-    if (strcmp(argv[argc - i], "faceup") == 0) {
-      restrictions.use_facedown = false;
-      had_restriction = true;
-    } else if (strcmp(argv[argc - i], "facedown") == 0) {
-      restrictions.use_faceup = false;
-      had_restriction = true;
-    } else if (strcmp(argv[argc - i], "t") == 0) {
-      use_t_mode = true;
+  int i = 0;
+  uint32_t locations[3] = {0, 0, 0};
+  piece_location_t placed_pieces[MAX_PIECES];
+  uint32_t n_placed_pieces = 0;
+
+  for (i = 1; i <= 3 && i < argc; i++) {
+    locations[i - 1] = parse_location(argv[i]);
+    if (locations[i - 1] == 0 && i <= 2) {
+      printf("%s is an invalid weekday or month\n", argv[i]);
+    }
+
+    // Only two of the arguments were valid date
+    if (i == 3) {
+      if (locations[i - 1] != 0) {
+        week_day_mode = true;
+      } else {
+        break;
+      }
     }
   }
 
-  // Work out how many day/month/weekday specifications we received
-  n_arguments = argc - 1;
-  if (had_restriction) {
-    n_arguments--;
-  }
-  if (use_t_mode) {
-    n_arguments--;
-  }
+  // Last argument is faceup/facedown or t
+  for (; i < argc; i++) {
+    if (strcmp(argv[i], "faceup") == 0) {
+      restrictions.use_facedown = false;
+    } else if (strcmp(argv[i], "facedown") == 0) {
+      restrictions.use_faceup = false;
+    } else if (strcmp(argv[i], "t") == 0) {
+      use_t_mode = true;
 
-  if (n_arguments != 2 && n_arguments != 3) {
-    print_usage();
-    exit(1);
-  }
+    } else {
+      piece_location_t *ploc = placed_pieces + n_placed_pieces;
+      int temp_flip;
+      int ret = sscanf(argv[i], "%ld,%ld,%ld,%ld,%d", &ploc->piece_id, &ploc->y,
+                       &ploc->x, &ploc->rot, &temp_flip);
+      ploc->flip = temp_flip;
 
-  uint32_t location1 = parse_location(argv[1]);
-  uint32_t location2 = parse_location(argv[2]);
-  uint32_t location3 = location2;
-
-  if (n_arguments == 3) {
-    week_day_mode = true;
-    location3 = parse_location(argv[3]);
-  }
-
-  if (location1 == 0 || location2 == 0 || location3 == 0) {
-    exit(1);
+      if (ret != 5) {
+        printf("Placed pieces must be defined as number quintuplets\n");
+        exit(1);
+      }
+      n_placed_pieces++;
+    }
   }
 
   if (week_day_mode) {
-    ret = make_problem_weekday(&problem, location1, location2, location3);
+    ret = make_problem_weekday(&problem, locations[0], locations[1],
+                               locations[2]);
   } else {
     if (use_t_mode) {
-      ret = make_problem_t(&problem, location1, location2);
+      ret = make_problem_t(&problem, locations[0], locations[1]);
     } else {
-      ret = make_problem_standard(&problem, location1, location2);
+      ret = make_problem_standard(&problem, locations[0], locations[1]);
     }
   }
 
-  ret = init_solutions(&sol, &problem, restrictions);
+  ret = check_partial_solution(&problem, placed_pieces, n_placed_pieces, NULL);
+  switch (ret) {
+  case INVALID_POSITION:
+    printf("Can place pieces on top of each other\n");
+    exit(1);
+    break;
+  case DUPLICATE_PIECE:
+    printf("You can only use each piece once\n");
+    exit(1);
+    break;
+  case WARNING:
+  case ERROR:
+    exit(1);
+    break;
+  default:
+    break;
+  }
+
+  print_partial_solution(placed_pieces, n_placed_pieces, &problem);
+
+  ret = init_partial_solution(&sol, &problem, restrictions, placed_pieces,
+                              n_placed_pieces);
   if (ret) {
     printf("Error: %s\n", get_error_description(ret));
   }
@@ -134,13 +112,13 @@ int main(int argc, char *argv[]) {
 
   // Print Date
   if (week_day_mode) {
-    printf("%s %s %s", problem.reverse_lookup[location1],
-           problem.reverse_lookup[location2],
-           problem.reverse_lookup[location3]);
+    printf("%s %s %s", problem.reverse_lookup[locations[0]],
+           problem.reverse_lookup[locations[1]],
+           problem.reverse_lookup[locations[2]]);
 
   } else {
-    printf("%s %s", problem.reverse_lookup[location1],
-           problem.reverse_lookup[location2]);
+    printf("%s %s", problem.reverse_lookup[locations[0]],
+           problem.reverse_lookup[locations[1]]);
   }
 
   printf(" - Found %ld solutions:\n", num);
@@ -153,13 +131,13 @@ int main(int argc, char *argv[]) {
   if (num > 3) {
     // Print Date
     if (week_day_mode) {
-      printf("%s %s %s", problem.reverse_lookup[location1],
-             problem.reverse_lookup[location2],
-             problem.reverse_lookup[location3]);
+      printf("%s %s %s", problem.reverse_lookup[locations[0]],
+             problem.reverse_lookup[locations[1]],
+             problem.reverse_lookup[locations[2]]);
 
     } else {
-      printf("%s %s", problem.reverse_lookup[location1],
-             problem.reverse_lookup[location2]);
+      printf("%s %s", problem.reverse_lookup[locations[0]],
+             problem.reverse_lookup[locations[1]]);
     }
 
     printf(" - Found %ld solutions:\n", num);

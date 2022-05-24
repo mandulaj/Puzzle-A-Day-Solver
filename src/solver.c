@@ -10,6 +10,80 @@
 #include <stdbool.h>
 #include <string.h>
 
+status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
+                               struct solution_restrictions restrictions,
+                               piece_location_t *placed_pieces,
+                               size_t n_placed_pieces) {
+  status_t ret;
+  if (n_placed_pieces >= problem->n_pieces) {
+    printf("Cant solve for more pieces than the problem has");
+    return WRONG_INPUT;
+  }
+
+  board_t partial_solution;
+  ret = check_partial_solution(problem, placed_pieces, n_placed_pieces,
+                               &partial_solution);
+  if (ret != STATUS_OK) {
+    return ret;
+  }
+
+  sol->problem = problem->problem;
+  sol->num_solutions = 0;
+  sol->current_level = 0;
+  sol->n_pieces = problem->n_pieces; // Number of pieces left
+
+  // Go through all pieces
+  for (int i = 0; i < problem->n_pieces; i++) {
+    bool placed_piece = false;
+    sol->sol_patterns_num[i] = 0;
+    sol->sol_pattern_index[i] = 0;
+
+    // Check if the piece is already placed
+    for (int j = 0; j < n_placed_pieces; j++) {
+      if (i == placed_pieces[j].piece_id) {
+        piece_t p =
+            get_piece(problem->pieces, problem->n_pieces, placed_pieces[j]);
+        if (p == 0) {
+          printf("Invalid piece location\n");
+          return INVALID_POSITION;
+        }
+
+        sol->sol_patterns[i] = aligned_alloc(32, 4 * sizeof(piece_t));
+        memset(sol->sol_patterns[i], 0xFF, 4 * sizeof(piece_t));
+        sol->sol_patterns[i][0] = p;
+        sol->sol_patterns_num[i] = 1;
+        placed_piece = true;
+        break;
+      }
+    }
+
+    if (!placed_piece) {
+
+      sol->sol_patterns[i] =
+          aligned_alloc(32, problem->piece_position_num[i] * sizeof(piece_t));
+      if (sol->sol_patterns[i] == NULL) {
+        printf("Failed ot allocate viable_sub_solutions array.\n");
+        return MEMORY_ERROR;
+      }
+      memset(sol->sol_patterns[i], 0xFF,
+             problem->piece_position_num[i] * sizeof(piece_t));
+
+      // Optimized sol_patterns positions (eliminating invalid positions)
+      sol->sol_patterns_num[i] =
+          make_positions(problem->pieces[i], problem->piece_props[i],
+                         partial_solution, sol->sol_patterns[i], restrictions);
+    }
+  }
+
+  sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
+  sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
+  if (sol->solutions == NULL) {
+    printf("Failed ot allocate solutions array.\n");
+    return MEMORY_ERROR;
+  }
+  return STATUS_OK;
+}
+
 status_t init_solutions(solutions_t *sol, const problem_t *problem,
                         struct solution_restrictions restrictions) {
   // Initialize problem formulation
@@ -42,10 +116,6 @@ status_t init_solutions(solutions_t *sol, const problem_t *problem,
                        sol->problem, sol->sol_patterns[i], restrictions);
   }
 
-  // for (int i = 0; i < sol->n_pieces; i++) {
-  //   printf("Positions: %ld\n\n", sol->sol_patterns_num[i]);
-  //   print_raw(problem->pieces[i]);
-  // }
   sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
   sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
   if (sol->solutions == NULL) {
@@ -267,4 +337,31 @@ uint64_t make_positions(piece_t piece, piece_properties_t props,
   } while (1);
   // printf("Positions: %ld\n", positions);
   return positions;
+}
+
+status_t check_partial_solution(const problem_t *problem,
+                                const piece_location_t *pieces, size_t n_pieces,
+                                board_t *result) {
+  piece_t prob = problem->problem;
+  for (int i = 0; i < n_pieces; i++) {
+
+    // Check for duplicates
+    for (int j = i + 1; j < n_pieces; j++) {
+      if (pieces[i].piece_id == pieces[j].piece_id) {
+        return DUPLICATE_PIECE;
+      }
+    }
+
+    // Check if piece is in valid location
+    piece_t p = get_piece(problem->pieces, problem->n_pieces, pieces[i]);
+
+    if (p & prob) {
+      return INVALID_POSITION;
+    }
+    prob |= p;
+  }
+  if (result != NULL) {
+    *result = prob;
+  }
+  return STATUS_OK;
 }
