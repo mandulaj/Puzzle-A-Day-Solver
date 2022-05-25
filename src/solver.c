@@ -1,4 +1,7 @@
+#define _GNU_SOURCE // In order to ignore the qsort_r warning
+
 #include <stdio.h>
+
 #include <stdlib.h>
 
 #include "board.h"

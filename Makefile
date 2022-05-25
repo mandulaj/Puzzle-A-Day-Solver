@@ -3,7 +3,7 @@ CFLAGS_release = -O3
 CFLAGS_debug = -O0 -g
 BUILD=release
 
-CFLAGS=-Wall -std=c11 ${CFLAGS_${BUILD}} -mbmi2  -mavx2 -march=native -fopenmp -I ./src/inc  -Lbuild
+CFLAGS=-Wall -std=c17 ${CFLAGS_${BUILD}} -mbmi2  -mavx2 -march=native -fopenmp -I ./src/inc  -Lbuild
 
 BUILD_DIR=build
 $(shell mkdir -p ${BUILD_DIR})
