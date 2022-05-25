@@ -2,6 +2,7 @@ CC=gcc
 FLAGS=-Wall -std=c11 -O3 -g -mbmi2  -mavx2 -march=native -fopenmp -I ./src/inc  -Lbuild
 
 BUILD_DIR=build
+$(shell mkdir -p ${BUILD_DIR})
 SRC_DIR=src
 
 

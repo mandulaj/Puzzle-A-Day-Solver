@@ -160,7 +160,8 @@ status_t push_solution(solutions_t *sol) {
   return STATUS_OK;
 }
 
-static status_t solve_rec(solutions_t *sol, board_t problem) {
+__attribute__((unused)) static status_t solve_rec(solutions_t *sol,
+                                                  board_t problem) {
   const size_t current_level = sol->current_level;
   const size_t num_patterns = sol->sol_patterns_num[current_level];
 
