@@ -4,14 +4,22 @@
 #include "problem.h"
 #include "solver.h"
 #include <stdio.h>
+#include <string.h>
 
-static void print_color(int i, char *text) {
+static int output_color(int i, const char *text, char *buffer, size_t n) {
   char *colors[] = {"\x1b[41m",  "\x1b[42m",  "\x1b[43m", "\x1b[44m",
                     "\x1b[45m",  "\x1b[46m",  "\x1b[47m", "\x1b[103m",
-                    "\x1b[102m", "\x1b[104m", "\x1b[7m"};
+                    "\x1b[102m", "\x1b[104m", "\x1b[7m",  "\x1b[0m"};
   char *reset = "\x1b[0m";
 
-  printf("%s%s%s", colors[i], text, reset);
+  return snprintf(buffer, n, "%s%s%s", colors[i], text, reset);
+}
+
+static void print_color(int i, const char *text) {
+  char buffer[32];
+
+  output_color(i, text, buffer, 32);
+  printf("%s", buffer);
 }
 
 static void print_color_square(int i) { print_color(i, "  "); }
@@ -41,6 +49,23 @@ void print_solution(const solution_t *solution, const problem_t *problem) {
     printf("\n");
   }
   printf("\n");
+}
+
+int get_piece_line(piece_t p, int color, int line, char *buffer) {
+  p = piece_origin(p); // Move pice to corner
+  char *p_start = buffer;
+
+  piece_t bit = 0x8000000000000000 >> 8 * line;
+  for (int i = 0; i < 8; i++) {
+    if (bit & p) {
+      buffer += output_color(color, "  ", buffer, 32);
+    } else {
+      buffer += output_color(11, "  ", buffer, 32);
+    }
+    bit >>= 1;
+  }
+
+  return buffer - p_start - 1;
 }
 
 void print_piece(piece_t p, int color) {
@@ -133,33 +158,84 @@ void print_partial_solution(const piece_location_t *pieces, size_t n_p,
 }
 
 void print_usageprint_partial_help() {
-  printf("Usage: ./main [day/month/weekday] [day/month/weekday] "
+  printf("Usage: ./pad [day/month/weekday] [day/month/weekday] "
          "{day/month/weekday} [faceup/facedown] [t]\n");
 }
 
 void print_usage() {
-  printf("Usage: ./main [day/month/weekday] [day/month/weekday] "
-         "{day/month/weekday} [faceup/facedown] [t] [id,y,x,rot,flip]\n");
-  problem_t problem;
+  printf("Usage: ./pad [day/month/weekday] [day/month/weekday] "
+         "{day/month/weekday} {faceup/facedown} {t} {id,y,x,rot,flip}\n");
 
-  make_problem_standard(&problem, 14, 15);
-  printf("Standard Pieces:\n");
-  for (int i = 0; i < problem.n_pieces; i++) {
-    printf("%d\n", i);
-    print_piece(problem.pieces[i], i);
+  printf("\n");
+  printf("  Eg. for 25. May, Sunday - ./pad may sun 25\n");
+  printf("  faceup - restricts to only faceup solutions\n");
+  printf("  facedown - restricts to only facedown solutions\n");
+  printf("  t - uses the T version of the puzzle\n");
+  printf("  {id,y,x,rot,flip} - allows finding solutions for partially filled "
+         "puzzles\n");
+  printf("                      specify piece id, x and y position, rotation "
+         "and flip\n");
+  printf("                      eg. 3,0,2,3,1 - places piece 3 rotated by 3 "
+         "and flipped at (0,2)\n\n");
+  problem_t problem1;
+  problem_t problem2;
+  problem_t problem3;
+  make_problem_standard(&problem1, 14, 15);
+  make_problem_t(&problem2, 14, 15);
+  make_problem_weekday(&problem3, 14, 15, 16);
+
+  printf("  Standard        T-Pieces      Weekend Pieces\n");
+
+  for (int i = 0; i < MAX_PIECES; i++) {
+    printf("----------------------------------------------\n");
+    for (int line = 0; line < 4; line++) {
+      char buffer[1024];
+      char *pbuf = buffer;
+      if (line == 0) {
+        pbuf += snprintf(pbuf, 1024, "%2d ", i);
+      } else {
+        strcpy(pbuf, "   ");
+        pbuf += 3;
+      }
+
+      if (i < problem1.n_pieces) {
+        pbuf += get_piece_line(problem1.pieces[i], i, line, pbuf);
+      } else {
+        strcpy(pbuf, "                ");
+        pbuf += 16;
+      }
+
+      if (i < problem2.n_pieces) {
+        pbuf += get_piece_line(problem2.pieces[i], i, line, pbuf);
+      } else {
+        strcpy(pbuf, "                ");
+        pbuf += 16;
+      }
+
+      if (i < problem3.n_pieces) {
+        pbuf += get_piece_line(problem3.pieces[i], i, line, pbuf);
+      } else {
+        strcpy(pbuf, "                ");
+        pbuf += 16;
+      }
+      printf("%s\n", buffer);
+    }
   }
 
-  make_problem_t(&problem, 14, 15);
-  printf("T-Pieces:\n");
-  for (int i = 0; i < problem.n_pieces; i++) {
-    printf("%d\n", i);
-    print_piece(problem.pieces[i], i);
-  }
+  // printf("Standard Pieces:\n");
+  // for (int i = 0; i < problem.n_pieces; i++) {
+  //   print_piece(problem.pieces[i], i);
+  // }
 
-  make_problem_weekday(&problem, 14, 15, 16);
-  printf("Weekend Pieces:\n");
-  for (int i = 0; i < problem.n_pieces; i++) {
-    printf("%d\n", i);
-    print_piece(problem.pieces[i], i);
-  }
+  // printf("T-Pieces:\n");
+  // for (int i = 0; i < problem.n_pieces; i++) {
+  //   printf("%d\n", i);
+  //   print_piece(problem.pieces[i], i);
+  // }
+
+  // printf("Weekend Pieces:\n");
+  // for (int i = 0; i < problem.n_pieces; i++) {
+  //   printf("%d\n", i);
+  //   print_piece(problem.pieces[i], i);
+  // }
 }
