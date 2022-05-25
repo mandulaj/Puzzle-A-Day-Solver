@@ -2,13 +2,37 @@
 #include <stdlib.h>
 
 #include "board.h"
+#include "config.h"
 #include "piece.h"
+#include "printing.h"
 #include "problem.h"
 #include "solver.h"
 #include "utils.h"
 #include <immintrin.h>
 #include <stdbool.h>
 #include <string.h>
+
+size_t call_level[MAX_PIECES] = {0};
+
+#ifdef SORT_PATTERNS
+
+int cmpfunc(const void *a, const void *b, void *args) {
+
+  size_t *array = (size_t *)args;
+
+  int val1 = array[*(int *)a];
+  int val2 = array[*(int *)b];
+  int ret = 0;
+  if (val2 < val1) {
+    /* swap string positions */
+    ret = 1;
+  } else if (val2 > val1) {
+    ret = -1;
+  }
+
+  return ret;
+}
+#endif
 
 status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
                                struct solution_restrictions restrictions,
@@ -49,7 +73,7 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
         }
 
         sol->sol_patterns[i] = aligned_alloc(32, 4 * sizeof(piece_t));
-        memset(sol->sol_patterns[i], 0xFF, 4 * sizeof(piece_t));
+        memset(sol->sol_patterns[i], 0xAA, 4 * sizeof(piece_t));
         sol->sol_patterns[i][0] = p;
         sol->sol_patterns_num[i] = 1;
         placed_piece = true;
@@ -58,15 +82,13 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
     }
 
     if (!placed_piece) {
-
-      sol->sol_patterns[i] =
-          aligned_alloc(32, problem->piece_position_num[i] * sizeof(piece_t));
+      size_t nearest_mul4 = ((problem->piece_position_num[i] + 4 - 1) / 4) * 4;
+      sol->sol_patterns[i] = aligned_alloc(32, nearest_mul4 * sizeof(piece_t));
       if (sol->sol_patterns[i] == NULL) {
         printf("Failed ot allocate viable_sub_solutions array.\n");
         return MEMORY_ERROR;
       }
-      memset(sol->sol_patterns[i], 0xFF,
-             problem->piece_position_num[i] * sizeof(piece_t));
+      memset(sol->sol_patterns[i], 0xAA, nearest_mul4 * sizeof(piece_t));
 
       // Optimized sol_patterns positions (eliminating invalid positions)
       sol->sol_patterns_num[i] =
@@ -75,10 +97,26 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
     }
   }
 
+  // Sort by least number of indexes
+  for (size_t i = 0; i < problem->n_pieces; i++) {
+    sol->sorted_sol_indexes[i] = i;
+  }
+#ifdef SORT_PATTERNS
+  qsort_r(sol->sorted_sol_indexes, problem->n_pieces,
+          sizeof(sol->sorted_sol_indexes[0]), cmpfunc, sol->sol_patterns_num);
+#endif
+  for (int i = 0; i < problem->n_pieces; i++) {
+    printf("%d: %ld\n", i, sol->sol_patterns_num[i]);
+  }
+
+  for (int i = 0; i < problem->n_pieces; i++) {
+    printf("%d: %ld\n", i, sol->sol_patterns_num[sol->sorted_sol_indexes[i]]);
+  }
+
   sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
   sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
   if (sol->solutions == NULL) {
-    printf("Failed ot allocate solutions array.\n");
+    printf("Failed to allocate solutions array.\n");
     return MEMORY_ERROR;
   }
   return STATUS_OK;
@@ -134,11 +172,11 @@ status_t destroy_solutions(solutions_t *sol) {
 }
 
 status_t push_solution(solutions_t *sol) {
-
   // Expand solutions buffer if needed
+  // printf("Found solution %ld\n", sol->num_solutions);
   if (sol->num_solutions + 1 >= sol->max_solutions) {
-    // printf("Increasing solutions buffer size!\n");
     sol->max_solutions += SOLUTIONS_BUFFER_SIZE;
+    // printf("Increasing solutions buffer size to %ld!\n", sol->max_solutions);
     if (sol->max_solutions > MAX_NUM_SOLUTIONS) {
       printf("Number of solutions over the limit, terminating!\n");
       return WARNING;
@@ -163,9 +201,11 @@ status_t push_solution(solutions_t *sol) {
 __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
                                                   board_t problem) {
   const size_t current_level = sol->current_level;
-  const size_t num_patterns = sol->sol_patterns_num[current_level];
+  const size_t current_index = sol->sorted_sol_indexes[current_level];
 
-  piece_t *p_patterns = sol->sol_patterns[current_level];
+  const size_t num_patterns = sol->sol_patterns_num[current_index];
+
+  piece_t *p_patterns = sol->sol_patterns[current_index];
 
   status_t ret;
 
@@ -174,7 +214,7 @@ __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
     board_t pp_or = p_patterns[i] | problem;
 
     if (!(pp_and)) {
-      sol->sol_pattern_index[current_level] = i;
+      sol->sol_pattern_index[current_index] = i;
 
       // We placed the last peice so have a full board, push it
       if (pp_or == 0xFFFFFFFFFFFFFFFF) {
@@ -208,7 +248,9 @@ __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
 }
 
 static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
-  size_t current_level = sol->current_level;
+  const size_t current_level = sol->current_level;
+  const size_t current_index = sol->sorted_sol_indexes[current_level];
+
   status_t ret;
 
   __m256i vec_problem = _mm256_set1_epi64x(problem);
@@ -217,9 +259,13 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
   piece_t pp_and_buffer[4] __attribute__((aligned(32)));
   piece_t pp_or_buffer[4] __attribute__((aligned(32)));
 
-  piece_t *p_patterns = sol->sol_patterns[current_level];
+  piece_t *p_patterns = sol->sol_patterns[current_index];
+  // print_raw_color(problem, current_level);
+  // print_raw_color(*p_patterns, current_level);
+  call_level[current_level]++;
 
-  for (size_t i = 0; i < sol->sol_patterns_num[current_level]; i += 4) {
+  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
+
     __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
@@ -238,7 +284,10 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
       for (size_t j = 0; j < 4; j++) {
 
         if (pp_and_buffer[j] == 0) {
-          sol->sol_pattern_index[current_level] = i + j;
+          sol->sol_pattern_index[current_index] = i + j;
+          if (current_level == 0) {
+            printf("Doing %d\n", i + j);
+          }
 
           if (pp_or_buffer[j] == 0xFFFFFFFFFFFFFFFF) {
             ret = push_solution(sol);
@@ -271,6 +320,23 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
 
   if (current_level > 0)
     sol->current_level--;
+  else {
+    size_t sum = 0;
+    for (int i = 0; i < sol->n_pieces; i++) {
+      size_t cl = call_level[i];
+      size_t num = sol->sol_patterns_num[sol->sorted_sol_indexes[i]];
+      size_t prod = cl * num;
+      sum += prod;
+    }
+    for (int i = 0; i < sol->n_pieces; i++) {
+      size_t cl = call_level[i];
+      size_t num = sol->sol_patterns_num[sol->sorted_sol_indexes[i]];
+      size_t prod = cl * num;
+      printf("Accesses Level[%d] %ld @ %ld = %ld (%.2f%%)\n", i, cl, num, prod,
+             (float)prod / sum * 100.0);
+    }
+    printf("Total = %e\n", (float)sum);
+  }
   return STATUS_OK;
 }
 

@@ -94,6 +94,22 @@ void print_piece(piece_t p, int color) {
   printf("\n");
 }
 
+void print_raw_color(piece_t pattern, int color) {
+  piece_t bit = 0x8000000000000000;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (bit & pattern) {
+        print_color_square(color);
+      } else {
+        printf("[]");
+      }
+      bit >>= 1;
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
 void print_piece_board(piece_t p, const problem_t *problem, int color) {
   piece_t bit = 0x8000000000000000;
   for (int i = 0; i < 8; i++) {
@@ -180,14 +196,16 @@ void print_usage() {
   problem_t problem1;
   problem_t problem2;
   problem_t problem3;
+  problem_t problem4;
   make_problem_standard(&problem1, 14, 15);
   make_problem_t(&problem2, 14, 15);
   make_problem_weekday(&problem3, 14, 15, 16);
-
-  printf("  Standard        T-Pieces      Weekend Pieces\n");
+  make_generic(&problem4);
+  // Print table
+  printf("  Standard        T-Pieces      Weekend Pieces     8x8 puzzle\n");
 
   for (int i = 0; i < MAX_PIECES; i++) {
-    printf("----------------------------------------------\n");
+    printf("-------------------------------------------------------------\n");
     for (int line = 0; line < 3; line++) {
       char buffer[1024];
       char *pbuf = buffer;
@@ -218,24 +236,14 @@ void print_usage() {
         strcpy(pbuf, "                ");
         pbuf += 16;
       }
+
+      if (i < problem4.n_pieces) {
+        pbuf += get_piece_line(problem4.pieces[i], i, line, pbuf);
+      } else {
+        strcpy(pbuf, "                ");
+        pbuf += 16;
+      }
       printf("%s\n", buffer);
     }
   }
-
-  // printf("Standard Pieces:\n");
-  // for (int i = 0; i < problem.n_pieces; i++) {
-  //   print_piece(problem.pieces[i], i);
-  // }
-
-  // printf("T-Pieces:\n");
-  // for (int i = 0; i < problem.n_pieces; i++) {
-  //   printf("%d\n", i);
-  //   print_piece(problem.pieces[i], i);
-  // }
-
-  // printf("Weekend Pieces:\n");
-  // for (int i = 0; i < problem.n_pieces; i++) {
-  //   printf("%d\n", i);
-  //   print_piece(problem.pieces[i], i);
-  // }
 }

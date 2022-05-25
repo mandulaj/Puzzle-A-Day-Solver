@@ -14,3 +14,4 @@ void print_partial_solution(const piece_location_t *pieces, size_t n_p,
 void print_usage();
 
 void print_partial_help();
+void print_raw_color(piece_t pattern, int color);

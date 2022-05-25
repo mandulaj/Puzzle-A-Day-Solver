@@ -29,6 +29,8 @@ typedef struct solutions_t {
 
   piece_t *sub_solutions[MAX_PIECES];
 
+  size_t sorted_sol_indexes[MAX_PIECES]; // Sorted solution indexes
+
   // Found Valid soutions
   size_t num_solutions;
   size_t max_solutions;

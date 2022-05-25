@@ -10,55 +10,70 @@
 #include <stdio.h>
 #include <string.h>
 
+enum puzzle_mode {
+  NONE_PUZZLE,
+  STANDARD_PUZZLE,
+  T_PUZZLE,
+  WEEKEND_PUZZLE,
+  GENERIC8x8_PUZZLE
+};
+
 int main(int argc, char *argv[]) {
   problem_t problem;
   status_t ret;
   solutions_t sol;
   struct solution_restrictions restrictions = {true, true};
+  enum puzzle_mode mode = NONE_PUZZLE;
+  int arg_i = 0;
 
-  if (argc < 3) {
+  if (argc >= 2 && strcmp(argv[1], "8x8") == 0) {
+    arg_i = 2;
+    mode = GENERIC8x8_PUZZLE;
+  } else if (argc < 3) {
     print_usage();
     exit(1);
   }
 
-  bool week_day_mode = false;
-  bool use_t_mode = false;
-
-  int i = 0;
   uint32_t locations[3] = {0, 0, 0};
   piece_location_t placed_pieces[MAX_PIECES];
   uint32_t n_placed_pieces = 0;
+  bool print_solutions = true;
 
-  for (i = 1; i <= 3 && i < argc; i++) {
-    locations[i - 1] = parse_location(argv[i]);
-    if (locations[i - 1] == 0 && i <= 2) {
-      printf("%s is an invalid weekday or month\n", argv[i]);
-    }
+  if (mode == NONE_PUZZLE) {
+    mode = STANDARD_PUZZLE;
+    for (arg_i = 1; arg_i <= 3 && arg_i < argc; arg_i++) {
+      locations[arg_i - 1] = parse_location(argv[arg_i]);
+      if (locations[arg_i - 1] == 0 && arg_i <= 2) {
+        printf("%s is an invalid weekday or month\n", argv[arg_i]);
+      }
 
-    // Only two of the arguments were valid date
-    if (i == 3) {
-      if (locations[i - 1] != 0) {
-        week_day_mode = true;
-      } else {
-        break;
+      // Only two of the arguments were valid date
+      if (arg_i == 3) {
+        if (locations[arg_i - 1] != 0) {
+          mode = WEEKEND_PUZZLE;
+        } else {
+          break;
+        }
       }
     }
   }
 
   // Last argument is faceup/facedown or t
-  for (; i < argc; i++) {
-    if (strcmp(argv[i], "faceup") == 0) {
+  for (; arg_i < argc; arg_i++) {
+    if (strcmp(argv[arg_i], "faceup") == 0) {
       restrictions.use_facedown = false;
-    } else if (strcmp(argv[i], "facedown") == 0) {
+    } else if (strcmp(argv[arg_i], "facedown") == 0) {
       restrictions.use_faceup = false;
-    } else if (strcmp(argv[i], "t") == 0) {
-      use_t_mode = true;
-
+    } else if (strcmp(argv[arg_i], "noprint") == 0) {
+      print_solutions = false;
+    } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
+               strcmp(argv[arg_i], "t") == 0) {
+      mode = T_PUZZLE;
     } else {
       piece_location_t *ploc = placed_pieces + n_placed_pieces;
       int temp_flip;
-      int ret = sscanf(argv[i], "%ld,%ld,%ld,%ld,%d", &ploc->piece_id, &ploc->y,
-                       &ploc->x, &ploc->rot, &temp_flip);
+      int ret = sscanf(argv[arg_i], "%ld,%ld,%ld,%ld,%d", &ploc->piece_id,
+                       &ploc->y, &ploc->x, &ploc->rot, &temp_flip);
       ploc->flip = temp_flip;
 
       if (ret != 5) {
@@ -69,15 +84,28 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (week_day_mode) {
+  switch (mode) {
+  case STANDARD_PUZZLE:
+    printf("Soliving Standard Puzzle\n");
+    ret = make_problem_standard(&problem, locations[0], locations[1]);
+    break;
+  case T_PUZZLE:
+    printf("Soliving T Puzzle\n");
+    ret = make_problem_t(&problem, locations[0], locations[1]);
+    break;
+  case WEEKEND_PUZZLE:
+    printf("Soliving Weekend Puzzle\n");
     ret = make_problem_weekday(&problem, locations[0], locations[1],
                                locations[2]);
-  } else {
-    if (use_t_mode) {
-      ret = make_problem_t(&problem, locations[0], locations[1]);
-    } else {
-      ret = make_problem_standard(&problem, locations[0], locations[1]);
-    }
+    break;
+  case GENERIC8x8_PUZZLE:
+    printf("Soliving Generic Puzzle\n");
+    ret = make_generic(&problem);
+    break;
+  case NONE_PUZZLE:
+  default:
+    printf("Invalid Puzzle\n");
+    exit(1);
   }
 
   ret = check_partial_solution(&problem, placed_pieces, n_placed_pieces, NULL);
@@ -111,36 +139,48 @@ int main(int argc, char *argv[]) {
   uint64_t num = sol.num_solutions;
 
   // Print Date
-  if (week_day_mode) {
-    printf("%s %s %s", problem.reverse_lookup[locations[0]],
+  switch (mode) {
+  case WEEKEND_PUZZLE:
+    printf("%s %s %s - ", problem.reverse_lookup[locations[0]],
            problem.reverse_lookup[locations[1]],
            problem.reverse_lookup[locations[2]]);
-
-  } else {
-    printf("%s %s", problem.reverse_lookup[locations[0]],
+    break;
+  case STANDARD_PUZZLE:
+  case T_PUZZLE:
+    printf("%s %s - ", problem.reverse_lookup[locations[0]],
            problem.reverse_lookup[locations[1]]);
+    break;
+  default:
+    break;
   }
 
-  printf(" - Found %ld solutions:\n", num);
+  printf("Found %ld solutions:\n", num);
 
-  for (int i = 0; i < num; i++) {
-    print_solution(&sol.solutions[i], &problem);
-  }
-
-  // Also print at the bottom if we have too many solutions
-  if (num > 3) {
-    // Print Date
-    if (week_day_mode) {
-      printf("%s %s %s", problem.reverse_lookup[locations[0]],
-             problem.reverse_lookup[locations[1]],
-             problem.reverse_lookup[locations[2]]);
-
-    } else {
-      printf("%s %s", problem.reverse_lookup[locations[0]],
-             problem.reverse_lookup[locations[1]]);
+  if (print_solutions) {
+    for (int i = 0; i < num; i++) {
+      print_solution(&sol.solutions[i], &problem);
     }
 
-    printf(" - Found %ld solutions:\n", num);
+    // Also print at the bottom if we have too many solutions
+    if (num > 3) {
+      // Print Date
+      switch (mode) {
+      case WEEKEND_PUZZLE:
+        printf("%s %s %s - ", problem.reverse_lookup[locations[0]],
+               problem.reverse_lookup[locations[1]],
+               problem.reverse_lookup[locations[2]]);
+        break;
+      case STANDARD_PUZZLE:
+      case T_PUZZLE:
+        printf("%s %s - ", problem.reverse_lookup[locations[0]],
+               problem.reverse_lookup[locations[1]]);
+        break;
+      default:
+        break;
+      }
+
+      printf("Found %ld solutions:\n", num);
+    }
   }
   destroy_solutions(&sol);
 }

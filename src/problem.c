@@ -18,6 +18,14 @@ const char *reverse_lookup_standard[] = {
     "4",   "3",  "2",  "1",   "",    "",    "Dec", "Nov", "Oct", "Sep", "Aug",
     "Jul", "",   "",   "Jun", "May", "Apr", "Mar", "Feb", "Jan"};
 
+const char *reverse_lookup_generic[] = {
+    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
+    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
+    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
+    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
+    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
+    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"};
+
 problem_t problem_types[] = {
     // Standard Problem
     {.blank =
@@ -73,7 +81,32 @@ problem_t problem_types[] = {
                      {4, true},
                      {4, true},
                      {4, true},
-                     {4, true}}}};
+                     {4, true}}},
+    {.blank =
+         0b0000000000000000000000000000000000000000000000000000000000000000,
+     .reverse_lookup = reverse_lookup_generic,
+     .n_pieces = 11,
+     .piece_position_num = {512, 512, 512, 512, 512, 512, 512, 512, 512, 512,
+                            512},
+     .pieces = {0xF0B0800000000000, 0xF090000000000000, 0xC0E0600000000000,
+                0x8080E00000000000, 0x20E0200000000000, 0x80F0000000000000,
+                0xE0C0000000000000, 0x80E0E00000000000, 0x80C0600000000000,
+                0x40E0400000000000, 0xE040600000000000
+
+     },
+     .piece_props = {{4, true},
+                     {4, false},
+                     {2, false},
+                     {4, false},
+                     {4, false},
+                     {4, true},
+                     {4, true},
+                     {4, true},
+                     {4, false},
+                     {1, false},
+                     {4, true}}}
+
+};
 
 uint32_t month_location(uint32_t month) {
   if (month > 12) {
@@ -132,6 +165,12 @@ uint32_t index_location(uint32_t index) {
   } else {
     return 50 - index;
   }
+}
+
+status_t make_generic(problem_t *prob) {
+  memcpy(prob, &problem_types[3], sizeof(problem_t));
+
+  return STATUS_OK;
 }
 
 status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
