@@ -123,37 +123,9 @@ status_t init_solutions(solutions_t *sol, const problem_t *problem,
   //  __builtin_popcountl(problem->problem ^ problem->blank));
   // print_raw(problem->problem ^ problem->blank);
 
-  sol->problem = problem->problem;
-  sol->num_solutions = 0;
-  sol->current_level = 0;
-  sol->n_pieces = problem->n_pieces;
+  piece_location_t placed_pieces;
 
-  // Allocate memory for subsolutions
-  for (int i = 0; i < sol->n_pieces; i++) {
-    sol->sol_patterns_num[i] = 0;
-    sol->sol_pattern_index[i] = 0;
-    sol->sol_patterns[i] =
-        aligned_alloc(32, problem->piece_position_num[i] * sizeof(piece_t));
-    if (sol->sol_patterns[i] == NULL) {
-      printf("Failed ot allocate viable_sub_solutions array.\n");
-      exit(1);
-    }
-    memset(sol->sol_patterns[i], 0xFF,
-           problem->piece_position_num[i] * sizeof(piece_t));
-
-    // Optimized sol_patterns positions (eliminating invalid positions)
-    sol->sol_patterns_num[i] =
-        make_positions(problem->pieces[i], problem->piece_props[i],
-                       sol->problem, sol->sol_patterns[i], restrictions);
-  }
-
-  sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
-  sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
-  if (sol->solutions == NULL) {
-    printf("Failed ot allocate solutions array.\n");
-    exit(1);
-  }
-  return STATUS_OK;
+  return init_partial_solution(sol, problem, restrictions, &placed_pieces, 0);
 }
 
 status_t destroy_solutions(solutions_t *sol) {
