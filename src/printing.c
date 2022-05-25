@@ -188,7 +188,7 @@ void print_usage() {
 
   for (int i = 0; i < MAX_PIECES; i++) {
     printf("----------------------------------------------\n");
-    for (int line = 0; line < 4; line++) {
+    for (int line = 0; line < 3; line++) {
       char buffer[1024];
       char *pbuf = buffer;
       if (line == 0) {
