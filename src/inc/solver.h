@@ -27,8 +27,6 @@ typedef struct solutions_t {
   size_t sol_patterns_num[MAX_PIECES]; // Total number of subsolutions
   piece_t *sol_patterns[MAX_PIECES];   // Viable solution patterns
 
-  piece_t *sub_solutions[MAX_PIECES];
-
   size_t sorted_sol_indexes[MAX_PIECES]; // Sorted solution indexes
 
   // Found Valid soutions
@@ -49,6 +47,7 @@ status_t destroy_solutions(solutions_t *sol);
 
 status_t push_solution(solutions_t *sol);
 
+status_t solve_parallel(solutions_t *sol);
 status_t solve(solutions_t *sol);
 
 uint64_t make_positions(piece_t piece, piece_properties_t props,

@@ -134,7 +134,11 @@ int main(int argc, char *argv[]) {
     printf("Error: %s\n", get_error_description(ret));
   }
 
+#ifdef USE_PARALLEL
+  ret = solve_parallel(&sol);
+#else
   ret = solve(&sol);
+#endif
 
   uint64_t num = sol.num_solutions;
 

@@ -2,7 +2,8 @@
 
 #pragma once
 
-#define USE_SMDI
+#define USE_SIMD
+#define USE_PARALLEL
 #define MAX_PIECES 11
 #define MAX_NUM_SOLUTIONS 1000000
 #define SOLUTIONS_BUFFER_SIZE 2048

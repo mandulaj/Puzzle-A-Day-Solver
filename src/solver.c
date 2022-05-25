@@ -105,13 +105,6 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
   qsort_r(sol->sorted_sol_indexes, problem->n_pieces,
           sizeof(sol->sorted_sol_indexes[0]), cmpfunc, sol->sol_patterns_num);
 #endif
-  for (int i = 0; i < problem->n_pieces; i++) {
-    printf("%d: %ld\n", i, sol->sol_patterns_num[i]);
-  }
-
-  for (int i = 0; i < problem->n_pieces; i++) {
-    printf("%d: %ld\n", i, sol->sol_patterns_num[sol->sorted_sol_indexes[i]]);
-  }
 
   sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
   sol->solutions = calloc(sol->max_solutions, sizeof(solution_t));
@@ -285,9 +278,6 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
 
         if (pp_and_buffer[j] == 0) {
           sol->sol_pattern_index[current_index] = i + j;
-          if (current_level == 0) {
-            printf("Doing %d\n", i + j);
-          }
 
           if (pp_or_buffer[j] == 0xFFFFFFFFFFFFFFFF) {
             ret = push_solution(sol);
@@ -320,33 +310,98 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
 
   if (current_level > 0)
     sol->current_level--;
-  else {
-    size_t sum = 0;
-    for (int i = 0; i < sol->n_pieces; i++) {
-      size_t cl = call_level[i];
-      size_t num = sol->sol_patterns_num[sol->sorted_sol_indexes[i]];
-      size_t prod = cl * num;
-      sum += prod;
-    }
-    for (int i = 0; i < sol->n_pieces; i++) {
-      size_t cl = call_level[i];
-      size_t num = sol->sol_patterns_num[sol->sorted_sol_indexes[i]];
-      size_t prod = cl * num;
-      printf("Accesses Level[%d] %ld @ %ld = %ld (%.2f%%)\n", i, cl, num, prod,
-             (float)prod / sum * 100.0);
-    }
-    printf("Total = %e\n", (float)sum);
-  }
+
   return STATUS_OK;
 }
 
 status_t solve(solutions_t *sol) {
-  status_t res;
-#if defined(USE_SMDI)
+  status_t res = STATUS_OK;
+
+#ifdef USE_SIMD
   res = solve_rec_smdi(sol, sol->problem);
 #else
   res = solve_rec(sol, sol->problem);
 #endif
+  return res;
+}
+
+status_t solve_parallel(solutions_t *sol) {
+  status_t res = STATUS_OK;
+
+  const size_t current_level = sol->current_level;
+  const size_t current_index = sol->sorted_sol_indexes[current_level];
+  const size_t n_patterns_first_level = sol->sol_patterns_num[current_index];
+  board_t problem = sol->problem;
+
+  solutions_t *sol_works = calloc(sizeof(solutions_t), n_patterns_first_level);
+  if (sol_works == NULL) {
+    return MEMORY_ERROR;
+  }
+
+  for (size_t i = 0; i < n_patterns_first_level; i++) {
+    // Copy base
+    memcpy(&sol_works[i], sol, sizeof(solutions_t));
+
+    // Give each an individual solutions buffer
+    sol_works[i].solutions =
+        calloc(sol_works[i].max_solutions, sizeof(solution_t));
+    if (sol_works[i].solutions == NULL) {
+      printf("Failed to allocate solutions array.\n");
+      return MEMORY_ERROR;
+    }
+  }
+
+  call_level[current_level]++;
+
+#pragma omp parallel for schedule(dynamic)                                     \
+    shared(sol_works, current_index, call_level)
+  for (size_t i = 0; i < n_patterns_first_level; i++) {
+    if ((sol_works[i].sol_patterns[current_index][i] & problem) == 0) {
+      sol_works[i].sol_pattern_index[current_index] = i;
+
+      sol_works[i].current_level++;
+
+#ifdef USE_SIMD
+      solve_rec_smdi(&sol_works[i],
+                     sol_works[i].sol_patterns[current_index][i] | problem);
+#else
+      solve_rec(&sol_works[i],
+                sol_works[i].sol_patterns[current_index][i] | problem);
+#endif
+    }
+  }
+
+  for (size_t i = 0; i < n_patterns_first_level; i++) {
+
+    // Get current solutions end
+    size_t solutions_end = sol->num_solutions;
+
+    // Increase buffer if required
+    sol->num_solutions += sol_works[i].num_solutions;
+    if (sol->num_solutions + 1 >= sol->max_solutions) {
+      sol->max_solutions += SOLUTIONS_BUFFER_SIZE;
+      // printf("Increasing solutions buffer size to %ld!\n",
+      // sol->max_solutions);
+      if (sol->max_solutions > MAX_NUM_SOLUTIONS) {
+        printf("Number of solutions over the limit, terminating!\n");
+        return WARNING;
+      }
+      sol->solutions =
+          realloc(sol->solutions, sol->max_solutions * sizeof(solution_t));
+      if (sol->solutions == NULL) {
+        printf("Failed to increasing number of solutions buffer!\n");
+        exit(1);
+      }
+    }
+
+    // Copy the solutions over
+    memcpy(&sol->solutions[solutions_end], sol_works[i].solutions,
+           sizeof(solution_t) * sol_works[i].num_solutions);
+
+    free(sol_works[i].solutions);
+  }
+  free(sol_works);
+
   return res;
 }
 
