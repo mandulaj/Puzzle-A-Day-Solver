@@ -15,8 +15,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-size_t call_level[MAX_PIECES] = {0};
-
 #ifdef SORT_PATTERNS
 
 int cmpfunc(const void *a, const void *b, void *args) {
@@ -228,13 +226,10 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
   piece_t pp_or_buffer[4] __attribute__((aligned(32)));
 
   piece_t *p_patterns = sol->sol_patterns[current_index];
-  // print_raw_color(problem, current_level);
-  // print_raw_color(*p_patterns, current_level);
-  call_level[current_level]++;
 
   for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
 
-    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
+    __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
 
@@ -244,9 +239,10 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
     // If any was zero, test will be false and we check them one at a time
     if (!_mm256_testz_si256(vec_test_zero, vec_test_zero)) {
 
+      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
+
       _mm256_store_si256((__m256i *)&pp_and_buffer, vec_pp_and);
 
-      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
       _mm256_store_si256((__m256i *)&pp_or_buffer, vec_pp_or);
 
       for (size_t j = 0; j < 4; j++) {
@@ -326,10 +322,7 @@ status_t solve_parallel(solutions_t *sol) {
     }
   }
 
-  call_level[current_level]++;
-
-#pragma omp parallel for schedule(dynamic)                                     \
-    shared(sol_works, current_index, call_level)
+#pragma omp parallel for schedule(dynamic) shared(sol_works, current_index)
   for (size_t i = 0; i < n_patterns_first_level; i++) {
     if ((sol_works[i].sol_patterns[current_index][i] & problem) == 0) {
       sol_works[i].sol_pattern_index[current_index] = i;

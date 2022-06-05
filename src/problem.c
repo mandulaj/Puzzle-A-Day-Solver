@@ -104,6 +104,22 @@ problem_t problem_types[] = {
                      {4, true},
                      {4, false},
                      {1, false},
+                     {4, true}}},
+    {.blank =
+         0b0000001100000011000000010000000100000001000000010001111111111111,
+     .reverse_lookup = reverse_lookup_standard,
+     .n_pieces = 8,
+     .piece_position_num = {512, 512, 512, 512, 512, 512, 512, 512},
+     .pieces = {0xE0E0000000000000, 0xC0E0000000000000, 0xC0E0000000000000,
+                0xA0E0000000000000, 0x80F0000000000000, 0xC0E0000000000000,
+                0x30E0000000000000, 0xC0E0000000000000},
+     .piece_props = {{2, false},
+                     {4, true},
+                     {4, true},
+                     {4, false},
+                     {4, true},
+                     {4, true},
+                     {4, true},
                      {4, true}}}
 
 };
