@@ -40,3 +40,9 @@ piece_t piece_place_left(piece_t piece);
 piece_t piece_place_up(piece_t piece);
 
 piece_t get_piece(const piece_t *pieces, size_t n, piece_location_t location);
+
+piece_properties_t get_piece_properties(const piece_t piece);
+
+uint64_t piece_order(piece_t p);
+
+bool same_piece(piece_t p1, piece_t p2);

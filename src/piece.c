@@ -104,3 +104,54 @@ piece_t get_piece(const piece_t *pieces, size_t n, piece_location_t location) {
   }
   return p;
 }
+
+piece_properties_t get_piece_properties(piece_t piece) {
+  // Move piece to corner
+  piece = piece_origin(piece);
+  piece_properties_t ppts = {1, true};
+
+  piece_t rot1 = piece_origin(piece_rotate(piece));
+  piece_t rot2 = piece_origin(piece_rotate(rot1));
+
+  if (piece == rot2 && piece != rot1) {
+    ppts.rotations = 2;
+  } else if (piece != rot2 && piece != rot1) {
+    ppts.rotations = 4;
+  }
+
+  piece_t flipped = piece_flip(piece);
+
+  // Chek all orientations if flipped piece matches
+  for (int i = 0; i < 4; i++) {
+    flipped = piece_origin(piece_rotate(flipped));
+
+    if (flipped == piece) {
+      ppts.asymetric = false;
+      break;
+    }
+  }
+
+  return ppts;
+}
+
+uint64_t piece_order(piece_t p) { return __popcntq(p); }
+
+bool same_piece(piece_t p1, piece_t p2) {
+  if (piece_order(p1) != piece_order(p2)) {
+    return false;
+  }
+
+  p1 = piece_origin(p1);
+  p2 = piece_origin(p2);
+
+  for (int reflection = 0; reflection < 2; reflection++) {
+    for (int rotation = 0; rotation < 4; rotation++) {
+      p2 = piece_origin(piece_rotate(p2));
+      if (p1 == p2) {
+        return true;
+      }
+    }
+    p2 = piece_flip(p2);
+  }
+  return false;
+}
