@@ -46,10 +46,14 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
   }
 
   board_t partial_solution;
-  ret = check_partial_solution(problem, placed_pieces, n_placed_pieces,
-                               &partial_solution);
-  if (ret != STATUS_OK) {
-    return ret;
+  if (n_placed_pieces > 0) {
+    ret = check_partial_solution(problem, placed_pieces, n_placed_pieces,
+                                 &partial_solution);
+    if (ret != STATUS_OK) {
+      return ret;
+    }
+  } else {
+    partial_solution = problem->problem;
   }
 
   sol->problem = problem->problem;
@@ -322,7 +326,7 @@ status_t solve_parallel(solutions_t *sol) {
     }
   }
 
-#pragma omp parallel for schedule(dynamic) shared(sol_works, current_index)
+#pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < n_patterns_first_level; i++) {
     if ((sol_works[i].sol_patterns[current_index][i] & problem) == 0) {
       sol_works[i].sol_pattern_index[current_index] = i;
@@ -404,7 +408,9 @@ uint64_t make_positions(piece_t piece, piece_properties_t props,
           if (current & problem) {
             invalid += 1;
           } else {
-            dest[positions] = current;
+            if (dest != NULL) {
+              dest[positions] = current;
+            }
             positions += 1;
           }
 

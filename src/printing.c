@@ -173,6 +173,17 @@ void print_partial_solution(const piece_location_t *pieces, size_t n_p,
   printf("\n");
 }
 
+void print_problem(problem_t *prob) {
+  printf("Problem with %ld pieces\n", prob->n_pieces);
+  print_piece_board(0x00, prob, 0);
+  for (int i = 0; i < prob->n_pieces; i++) {
+    printf("Piece %d with %ld positions (%ld rotations & %s) :\n", i,
+           prob->piece_position_num[i], prob->piece_props[i].rotations,
+           prob->piece_props[i].asymetric ? "asymetric" : "symetric");
+    print_piece(prob->pieces[i], i);
+  }
+}
+
 void print_usageprint_partial_help() {
   printf("Usage: ./pad [day/month/weekday] [day/month/weekday] "
          "{day/month/weekday} [faceup/facedown] [t]\n");
