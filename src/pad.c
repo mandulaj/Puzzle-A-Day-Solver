@@ -13,6 +13,7 @@
 enum puzzle_mode {
   NONE_PUZZLE,
   STANDARD_PUZZLE,
+  CUSTOM_PIECES,
   T_PUZZLE,
   WEEKEND_PUZZLE,
   GENERIC8x8_PUZZLE
@@ -69,6 +70,9 @@ int main(int argc, char *argv[]) {
     } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
                strcmp(argv[arg_i], "t") == 0) {
       mode = T_PUZZLE;
+    } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
+               strcmp(argv[arg_i], "c") == 0) {
+      mode = CUSTOM_PIECES;
     } else {
       piece_location_t *ploc = placed_pieces + n_placed_pieces;
       int temp_flip;
@@ -88,6 +92,14 @@ int main(int argc, char *argv[]) {
   case STANDARD_PUZZLE:
     printf("Soliving Standard Puzzle\n");
     ret = make_problem_standard(&problem, locations[0], locations[1]);
+    break;
+  case CUSTOM_PIECES:
+    printf("Custom Pieces Puzzle\n");
+    piece_t pieces[8] = {0x40f0000000000000, 0x70c0000000000000,
+                         0xc080c00000000000, 0x2020e00000000000,
+                         0xe0c0000000000000, 0xe060000000000000,
+                         0x10f0000000000000, 0xe0e0000000000000};
+    ret = make_problem(&problem, pieces, locations[0], locations[1]);
     break;
   case T_PUZZLE:
     printf("Soliving T Puzzle\n");

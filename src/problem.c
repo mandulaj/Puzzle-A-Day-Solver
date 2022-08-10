@@ -1,4 +1,5 @@
 #include "problem.h"
+#include "solver.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -186,6 +187,31 @@ uint32_t index_location(uint32_t index) {
 status_t make_generic(problem_t *prob) {
   memcpy(prob, &problem_types[3], sizeof(problem_t));
 
+  return STATUS_OK;
+}
+
+status_t make_problem(problem_t *prob, piece_t *pieces, uint32_t pos1,
+                      uint32_t pos2) {
+  if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
+    return WRONG_INPUT;
+  }
+
+  prob->n_pieces = problem_types[0].n_pieces;
+  prob->blank = problem_types[0].blank;
+  prob->problem = problem_types[0].blank;
+  prob->reverse_lookup = problem_types[0].reverse_lookup;
+
+  struct solution_restrictions res = {true, true};
+
+  for (int i = 0; i < prob->n_pieces; i++) {
+    prob->pieces[i] = pieces[i];
+    prob->piece_props[i] = get_piece_properties(pieces[i]);
+    prob->piece_position_num[i] = make_positions(
+        prob->pieces[i], prob->piece_props[i], prob->blank, NULL, res);
+  }
+
+  prob->problem =
+      prob->blank | ((board_t)0x01 << pos1) | ((board_t)0x01 << pos2);
   return STATUS_OK;
 }
 

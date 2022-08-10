@@ -32,7 +32,12 @@ int main() {
 #ifdef INCLUDE_WEEKDAYS
         make_from_date_weekday(&problem, day, month, wd);
 #else
-      make_from_date(&problem, day, month);
+      // make_from_date(&problem, day, month);
+      piece_t pieces[8] = {0x40f0000000000000, 0x70c0000000000000,
+                           0xc080c00000000000, 0x2020e00000000000,
+                           0xe0c0000000000000, 0xe060000000000000,
+                           0x10f0000000000000, 0xe0e0000000000000};
+      make_problem(&problem, pieces, day_location(day), month_location(month));
 #endif
 
         init_solutions(&sol1, &problem, restrictions);
