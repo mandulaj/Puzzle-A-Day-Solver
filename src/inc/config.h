@@ -9,6 +9,9 @@
 #define SOLUTIONS_BUFFER_SIZE 2048
 #define SORT_PATTERNS
 
+#define CHECK_HOLES
+#define CHECK_DOUBLE_HOLES
+
 // Statistics config
 
 #define ONLY_VALID_DATES

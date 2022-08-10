@@ -11,6 +11,7 @@
 
 #include "config.h"
 #include "piece.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 /**
@@ -31,3 +32,6 @@ typedef struct solution_t {
 void print_raw(uint64_t soution);
 
 void print_2_raw(uint64_t pattern1, uint64_t pattern2);
+
+bool check_holes(board_t board);
+bool check_holes_simd(board_t board);

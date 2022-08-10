@@ -217,7 +217,7 @@ __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
   return STATUS_OK;
 }
 
-static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
+static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
 
@@ -266,14 +266,16 @@ static status_t solve_rec_smdi(solutions_t *sol, board_t problem) {
             return STATUS_OK; // We are at the end, we will not fit anywhere
                               // else
           } else {
-            sol->current_level++;
-            ret = solve_rec_smdi(sol, pp_or_buffer[j]);
-            if (ret) {
-              if (ret == WARNING) {
-                break;
+            if (check_holes_simd(pp_or_buffer[j])) {
+              sol->current_level++;
+              ret = solve_rec_simd(sol, pp_or_buffer[j]);
+              if (ret) {
+                if (ret == WARNING) {
+                  break;
+                }
+                printf("Catching error\n");
+                return ret;
               }
-              printf("Catching error\n");
-              return ret;
             }
           }
         }
@@ -293,7 +295,7 @@ status_t solve(solutions_t *sol) {
   status_t res = STATUS_OK;
 
 #ifdef USE_SIMD
-  res = solve_rec_smdi(sol, sol->problem);
+  res = solve_rec_simd(sol, sol->problem);
 #else
   res = solve_rec(sol, sol->problem);
 #endif
@@ -334,7 +336,7 @@ status_t solve_parallel(solutions_t *sol) {
       sol_works[i].current_level++;
 
 #ifdef USE_SIMD
-      solve_rec_smdi(&sol_works[i],
+      solve_rec_simd(&sol_works[i],
                      sol_works[i].sol_patterns[current_index][i] | problem);
 #else
       solve_rec(&sol_works[i],
