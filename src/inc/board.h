@@ -26,6 +26,13 @@ typedef struct solution_t {
   piece_t pieces[MAX_PIECES];
 } solution_t;
 
+struct hole_checker {
+  board_t *hole_masks;
+  board_t *hole_crosses;
+  uint64_t num_holes;
+  uint64_t num_blocks;
+};
+
 /**
  * @brief Print raw solution
  */
@@ -33,5 +40,9 @@ void print_raw(uint64_t soution);
 
 void print_2_raw(uint64_t pattern1, uint64_t pattern2);
 
-bool check_holes(board_t board);
-bool check_holes_simd(board_t board);
+void init_hole_checker(board_t problem, struct hole_checker *hc);
+void free_hole_checker(struct hole_checker *hc);
+
+bool check_holes(board_t board, struct hole_checker *hc);
+bool check_holes_simd(board_t board, const struct hole_checker *hc);
+void print_hole_checker(struct hole_checker *hc);

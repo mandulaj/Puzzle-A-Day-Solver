@@ -266,7 +266,7 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
             return STATUS_OK; // We are at the end, we will not fit anywhere
                               // else
           } else {
-            if (check_holes_simd(pp_or_buffer[j])) {
+            if (check_holes_simd(pp_or_buffer[j], &sol->hc)) {
               sol->current_level++;
               ret = solve_rec_simd(sol, pp_or_buffer[j]);
               if (ret) {
@@ -294,16 +294,20 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
 status_t solve(solutions_t *sol) {
   status_t res = STATUS_OK;
 
+  init_hole_checker(sol->problem, &sol->hc);
 #ifdef USE_SIMD
   res = solve_rec_simd(sol, sol->problem);
 #else
   res = solve_rec(sol, sol->problem);
 #endif
+  free_hole_checker(&sol->hc);
   return res;
 }
 
 status_t solve_parallel(solutions_t *sol) {
   status_t res = STATUS_OK;
+
+  init_hole_checker(sol->problem, &sol->hc);
 
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
@@ -375,6 +379,8 @@ status_t solve_parallel(solutions_t *sol) {
     free(sol_works[i].solutions);
   }
   free(sol_works);
+
+  free_hole_checker(&sol->hc);
 
   return res;
 }

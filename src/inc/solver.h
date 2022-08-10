@@ -33,6 +33,8 @@ typedef struct solutions_t {
   size_t num_solutions;
   size_t max_solutions;
   solution_t *solutions;
+
+  struct hole_checker hc;
 } solutions_t;
 
 status_t init_solutions(solutions_t *sol, const problem_t *problem,

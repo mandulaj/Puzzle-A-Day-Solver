@@ -1,4 +1,5 @@
 #include "board.h"
+#include "printing.h"
 #include <immintrin.h>
 #include <stdio.h>
 
@@ -50,7 +51,7 @@ void print_2_raw(uint64_t pattern1, uint64_t pattern2) {
 #ifdef CHECK_DOUBLE_HOLES
 #define N_HOLES 176
 
-static const board_t HOLE_MASKS[N_HOLES] __attribute__((aligned(32))) = {
+static const board_t HOLE_MASKS_RAW[N_HOLES] = {
     0xC080000000000000, 0xE040000000000000, 0x7020000000000000,
     0x3810000000000000, 0x1C08000000000000, 0x0E04000000000000,
     0x0702000000000000, 0x0301000000000000, 0x80C0800000000000,
@@ -111,7 +112,7 @@ static const board_t HOLE_MASKS[N_HOLES] __attribute__((aligned(32))) = {
     0x0000000000003078, 0x000000000000183C, 0x0000000000000C1E,
     0x000000000000060F, 0x0000000000000307};
 
-static const board_t HOLE_CROSSES[N_HOLES] __attribute__((aligned(32))) = {
+static const board_t HOLE_CROSSES_RAW[N_HOLES] = {
     0x4080000000000000, 0xa040000000000000, 0x5020000000000000,
     0x2810000000000000, 0x1408000000000000, 0x0a04000000000000,
     0x0502000000000000, 0x0201000000000000, 0x8040800000000000,
@@ -174,7 +175,7 @@ static const board_t HOLE_CROSSES[N_HOLES] __attribute__((aligned(32))) = {
 
 #else
 #define N_HOLES 64
-static board_t HOLE_MASKS[N_HOLES] __attribute__((aligned(32))) = {
+static board_t HOLE_MASKS_RAW[N_HOLES] = {
     0xC080000000000000, 0xE040000000000000, 0x7020000000000000,
     0x3810000000000000, 0x1C08000000000000, 0x0E04000000000000,
     0x0702000000000000, 0x0301000000000000, 0x80C0800000000000,
@@ -198,7 +199,7 @@ static board_t HOLE_MASKS[N_HOLES] __attribute__((aligned(32))) = {
     0x000000000000081C, 0x000000000000040E, 0x0000000000000207,
     0x0000000000000103};
 
-static board_t HOLE_CROSSES[N_HOLES] __attribute__((aligned(32))) = {
+static board_t HOLE_CROSSES_RAW[N_HOLES] = {
     0x4080000000000000, 0xa040000000000000, 0x5020000000000000,
     0x2810000000000000, 0x1408000000000000, 0x0a04000000000000,
     0x0502000000000000, 0x0201000000000000, 0x8040800000000000,
@@ -224,23 +225,59 @@ static board_t HOLE_CROSSES[N_HOLES] __attribute__((aligned(32))) = {
 
 #endif
 
-bool check_holes(board_t board) {
+void init_hole_checker(board_t problem, struct hole_checker *hc) {
+
+  hc->num_holes = 0;
+  hc->hole_masks = aligned_alloc(32, N_HOLES * sizeof(board_t));
+  hc->hole_crosses = aligned_alloc(32, N_HOLES * sizeof(board_t));
+
+  // Only Pick those holes that are relevant
   for (int i = 0; i < N_HOLES; i++) {
-    board_t sel = board & HOLE_MASKS[i];
-    if (sel == HOLE_CROSSES[i]) {
+    // printf("%d\n", i);
+
+    board_t affected = (HOLE_CROSSES_RAW[i] ^ HOLE_MASKS_RAW[i]);
+
+    if ((affected & problem) == 0) {
+      // print_raw(affected);
+      hc->hole_masks[hc->num_holes] = HOLE_MASKS_RAW[i];
+      hc->hole_crosses[hc->num_holes] = HOLE_CROSSES_RAW[i];
+      hc->num_holes++;
+    }
+  }
+
+  hc->num_blocks = (hc->num_holes + 3) / 4;
+
+  // Clear the remainder in order to avoid issues in SIMD
+  for (int i = hc->num_holes; i < N_HOLES; i++) {
+    hc->hole_masks[i] = 0x0000000000000000;
+    hc->hole_crosses[i] = 0xFFFFFFFFFFFFFFFF;
+  }
+
+  // printf("Checking: %d/%d holes\n", hc->num_holes, N_HOLES);
+}
+
+void free_hole_checker(struct hole_checker *hc) {
+  free(hc->hole_crosses);
+  free(hc->hole_masks);
+}
+
+bool check_holes(board_t board, struct hole_checker *hc) {
+  for (int i = 0; i < hc->num_holes; i++) {
+    board_t sel = board & hc->hole_masks[i];
+    if (sel == hc->hole_crosses[i]) {
       return false;
     }
   }
   return true;
 }
 
-bool check_holes_simd(board_t board) {
+bool check_holes_simd(board_t board, const struct hole_checker *hc) {
 
   __m256i vec_problem = _mm256_set1_epi64x(board);
 
-  board_t *p_hole_masks = HOLE_MASKS;
-  board_t *p_hole_crosses = HOLE_CROSSES;
-  size_t nBlocks = N_HOLES / 4;
+  board_t *p_hole_masks = hc->hole_masks;
+  board_t *p_hole_crosses = hc->hole_crosses;
+  size_t nBlocks = hc->num_blocks;
 
   do {
     __m256i vec_masks = _mm256_stream_load_si256((__m256i *)p_hole_masks);
@@ -255,9 +292,17 @@ bool check_holes_simd(board_t board) {
     }
     p_hole_masks += 4;
     p_hole_crosses += 4;
-  } while (nBlocks--);
+  } while (--nBlocks);
 
   return true;
+}
+
+void print_hole_checker(struct hole_checker *hc) {
+  for (int i = 0; i < hc->num_holes; i++) {
+    printf("%d\n", i);
+    print_raw_color(hc->hole_masks[i], i % 10);
+    print_raw_color(hc->hole_crosses[i], i % 10);
+  }
 }
 
 #else
