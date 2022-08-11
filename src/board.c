@@ -313,7 +313,7 @@ bool check_holes_single(board_t board) {
     }
 
     // Break after 3 rows
-    if ((++row) > 3) {
+    if ((++row) >= 3) {
       return true;
     }
 
