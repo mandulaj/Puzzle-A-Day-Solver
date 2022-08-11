@@ -44,5 +44,5 @@ void init_hole_checker(board_t problem, struct hole_checker *hc);
 void free_hole_checker(struct hole_checker *hc);
 
 // bool check_holes(board_t board, struct hole_checker *hc);
-bool check_holes_simd(board_t board, const struct hole_checker *hc);
+bool check_holes(board_t board);
 void print_hole_checker(struct hole_checker *hc);

@@ -20,6 +20,31 @@ void print_raw(uint64_t pattern) {
   printf("\n");
 }
 
+void print_rows(uint64_t pattern, uint64_t rows, int color) {
+
+  char *colors[] = {"\x1b[41m",  "\x1b[42m",  "\x1b[43m", "\x1b[44m",
+                    "\x1b[45m",  "\x1b[46m",  "\x1b[47m", "\x1b[103m",
+                    "\x1b[102m", "\x1b[104m", "\x1b[7m",  "\x1b[0m"};
+  char *reset = "\x1b[0m";
+
+  for (int i = 0; i < 8 - rows; i++) {
+    pattern <<= 8;
+  }
+  for (int i = 8 - rows; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (pattern & 0x8000000000000000) {
+        printf("%s  %s", colors[color], reset);
+        // printf("%s", 0xe296a0);
+      } else {
+        printf("= ");
+      }
+      pattern <<= 1;
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
 void print_2_raw(uint64_t pattern1, uint64_t pattern2) {
 
   for (int i = 0; i < 8; i++) {
@@ -221,7 +246,7 @@ void free_hole_checker(struct hole_checker *hc) {
   free(hc->double_hole_masks);
 }
 
-bool check_holes_simd_double(board_t board, const struct hole_checker *hc) {
+bool check_holes_simd_old_double(board_t board, const struct hole_checker *hc) {
 
   __m256i vec_problem = _mm256_set1_epi64x(board);
 
@@ -247,7 +272,90 @@ bool check_holes_simd_double(board_t board, const struct hole_checker *hc) {
   return true;
 }
 
-static const uint32_t SINGLE_HOLE_MASKS_RAW[] __attribute__((aligned(32))) = {
+static const uint32_t DOUBLE_HOLE_MASKS_VERTICAL[]
+    __attribute__((aligned(32))) = {
+        0xC0C08000, 0xE0E04000, 0x70702000, 0x38381000, 0x1C1C0800, 0x0E0E0400,
+        0x07070200, 0x03030100, 0x80C0C080, 0x40E0E040, 0x20707020, 0x10383810,
+        0x081C1C08, 0x040E0E04, 0x02070702, 0x01030301, 0x0080C0C0, 0x0040E0E0,
+        0x00207070, 0x00103838, 0x00081C1C, 0x00040E0E, 0x00020707, 0x00010303};
+
+static const uint32_t DOUBLE_HOLE_CROSSES_VERTICAL[]
+    __attribute__((aligned(32))) = {
+        0x40408000, 0xa0a04000, 0x50502000, 0x28281000, 0x14140800, 0x0a0a0400,
+        0x05050200, 0x02020100, 0x80404080, 0x40a0a040, 0x20505020, 0x10282810,
+        0x08141408, 0x040a0a04, 0x02050502, 0x01020201, 0x00804040, 0x0040a0a0,
+        0x00205050, 0x00102828, 0x00081414, 0x00040a0a, 0x00020505, 0x00010202};
+
+bool check_holes_simd_double(board_t board) {
+
+  uint32_t upper_board = (uint32_t)(board >> 32);
+
+  uint32_t middle1_board = (uint32_t)(board >> 24);
+  uint32_t middle2_board = (uint32_t)(board >> 16);
+  uint32_t middle3_board = (uint32_t)(board >> 8);
+
+  uint32_t lower_board = (uint32_t)(board);
+
+  __m256i vec_upper_problem = _mm256_set1_epi32(upper_board);
+  __m256i vec_lower_problem = _mm256_set1_epi32(lower_board);
+  __m256i vec_middle1_problem = _mm256_set1_epi32(middle1_board);
+  __m256i vec_middle2_problem = _mm256_set1_epi32(middle2_board);
+  __m256i vec_middle3_problem = _mm256_set1_epi32(middle3_board);
+
+  const uint32_t *p_masks = DOUBLE_HOLE_MASKS_VERTICAL;
+  const uint32_t *p_cross = DOUBLE_HOLE_CROSSES_VERTICAL;
+
+  // Load Masks
+  __m256i vec_upper_masks = _mm256_stream_load_si256((__m256i *)p_masks);
+  __m256i vec_upper_cross = _mm256_stream_load_si256((__m256i *)p_cross);
+
+  __m256i vec_middle_masks = _mm256_stream_load_si256((__m256i *)(p_masks + 8));
+  __m256i vec_middle_cross = _mm256_stream_load_si256((__m256i *)(p_cross + 8));
+
+  // Load Lower Masks
+  __m256i vec_lower_masks = _mm256_stream_load_si256((__m256i *)(p_masks + 16));
+  __m256i vec_lower_cross = _mm256_stream_load_si256((__m256i *)(p_cross + 16));
+
+  // Select Rows
+  __m256i vec_sel_row0 = _mm256_and_si256(vec_upper_problem, vec_upper_masks);
+  __m256i vec_sel_row1 = _mm256_and_si256(vec_upper_problem, vec_middle_masks);
+
+  __m256i vec_sel_row2 =
+      _mm256_and_si256(vec_middle1_problem, vec_middle_masks);
+  __m256i vec_sel_row3 =
+      _mm256_and_si256(vec_middle2_problem, vec_middle_masks);
+  __m256i vec_sel_row4 =
+      _mm256_and_si256(vec_middle3_problem, vec_middle_masks);
+
+  __m256i vec_sel_row5 = _mm256_and_si256(vec_lower_problem, vec_middle_masks);
+  __m256i vec_sel_row6 = _mm256_and_si256(vec_lower_problem, vec_lower_masks);
+
+  // Test Rows
+  __m256i vec_test_row0 = _mm256_cmpeq_epi32(vec_sel_row0, vec_upper_cross);
+
+  __m256i vec_test_row1 = _mm256_cmpeq_epi32(vec_sel_row1, vec_middle_cross);
+
+  __m256i vec_test_row2 = _mm256_cmpeq_epi32(vec_sel_row2, vec_middle_cross);
+  __m256i vec_test_row3 = _mm256_cmpeq_epi32(vec_sel_row3, vec_middle_cross);
+  __m256i vec_test_row4 = _mm256_cmpeq_epi32(vec_sel_row4, vec_middle_cross);
+
+  __m256i vec_test_row5 = _mm256_cmpeq_epi32(vec_sel_row5, vec_middle_cross);
+  __m256i vec_test_row6 = _mm256_cmpeq_epi32(vec_sel_row6, vec_lower_cross);
+
+  if (!_mm256_testz_si256(vec_test_row0, vec_test_row0) ||
+      !_mm256_testz_si256(vec_test_row1, vec_test_row1) ||
+      !_mm256_testz_si256(vec_test_row2, vec_test_row2) ||
+      !_mm256_testz_si256(vec_test_row3, vec_test_row3) ||
+      !_mm256_testz_si256(vec_test_row4, vec_test_row4) ||
+      !_mm256_testz_si256(vec_test_row5, vec_test_row5) ||
+      !_mm256_testz_si256(vec_test_row6, vec_test_row6)) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+static const uint32_t SINGLE_HOLE_MASKS[32] __attribute__((aligned(32))) = {
     0xC0800000, 0xE0400000, 0x70200000, 0x38100000, 0x1C080000, 0x0E040000,
     0x07020000, 0x03010000, 0x80C08000, 0x40E04000, 0x20702000, 0x10381000,
     0x081C0800, 0x040E0400, 0x02070200, 0x01030100, 0x0080C080, 0x0040E040,
@@ -255,7 +363,7 @@ static const uint32_t SINGLE_HOLE_MASKS_RAW[] __attribute__((aligned(32))) = {
     0x000080C0, 0x000040E0, 0x00002070, 0x00001038, 0x0000081C, 0x0000040E,
     0x00000207, 0x00000103};
 
-static const uint32_t SINGLE_HOLE_CROSSES_RAW[] __attribute__((aligned(32))) = {
+static const uint32_t SINGLE_HOLE_CROSSES[32] __attribute__((aligned(32))) = {
     0x40800000, 0xa0400000, 0x50200000, 0x28100000, 0x14080000, 0x0a040000,
     0x05020000, 0x02010000, 0x80408000, 0x40a04000, 0x20502000, 0x10281000,
     0x08140800, 0x040a0400, 0x02050200, 0x01020100, 0x00804080, 0x0040a040,
@@ -265,15 +373,15 @@ static const uint32_t SINGLE_HOLE_CROSSES_RAW[] __attribute__((aligned(32))) = {
 
 bool check_holes_single(board_t board) {
   uint32_t upper_board = (uint32_t)(board >> 32);
-  uint32_t lower_board = (uint32_t)(board);
   uint32_t middle_board = (uint32_t)(board >> 16);
+  uint32_t lower_board = (uint32_t)(board);
 
   __m256i vec_upper_problem = _mm256_set1_epi32(upper_board);
   __m256i vec_lower_problem = _mm256_set1_epi32(lower_board);
   __m256i vec_middle_problem = _mm256_set1_epi32(middle_board);
 
-  const uint32_t *p_masks = SINGLE_HOLE_MASKS_RAW;
-  const uint32_t *p_crosses = SINGLE_HOLE_CROSSES_RAW;
+  const uint32_t *p_masks = SINGLE_HOLE_MASKS;
+  const uint32_t *p_crosses = SINGLE_HOLE_CROSSES;
 
   // Load Upper Masks
   __m256i vec_upper_masks = _mm256_stream_load_si256((__m256i *)p_masks);
@@ -308,7 +416,7 @@ bool check_holes_single(board_t board) {
 
     if (!_mm256_testz_si256(vec_upper_test, vec_upper_test) ||
         !_mm256_testz_si256(vec_lower_test, vec_lower_test) ||
-        (row != 2 && !_mm256_testz_si256(vec_middle_test, vec_middle_test))) {
+        (row < 2 && !_mm256_testz_si256(vec_middle_test, vec_middle_test))) {
       return false;
     }
 
@@ -330,8 +438,24 @@ bool check_holes_single(board_t board) {
   } while (1);
 }
 
-bool check_holes_simd(board_t board, const struct hole_checker *hc) {
-  return check_holes_single(board) && check_holes_simd_double(board, hc);
+bool check_holes(board_t board) {
+
+  if (!check_holes_single(board)) {
+    return false;
+  }
+
+  if (!check_holes_simd_double(board)) {
+    return false;
+  }
+
+  //  Rotate bord to test horizontal double piece
+  board = piece_rotate(board);
+
+  if (!check_holes_simd_double(board)) {
+    return false;
+  }
+
+  return true;
 }
 
 void print_hole_checker(struct hole_checker *hc) {
