@@ -1,5 +1,7 @@
 Puzzle-A-Day Solver
 ===================
+[![Buy me a Beer](https://img.shields.io/badge/Buy%20me%20a%20Beer-%245-orange)](https://www.buymeacoffee.com/mandula)
+
 
 A command line tool for solving the Puzzle-A-Day and providing interesting statistics about possible solutions.
 The solver can be restricted to only find solutions with pieces faced up/down, have a custom board layout and custom pieces altogether. It can also be instructed to find invalid solutions such as two months (Jan Feb), two days (3 14) or non existant days (Feb 31). This tool was inspired by the work done at [https://www.noreply.blog/a-puzzle-a-day/](https://www.noreply.blog/a-puzzle-a-day/) and expanded to provide an interactive experience.
