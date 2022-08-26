@@ -1,6 +1,8 @@
+#define _GNU_SOURCE // enable getline
 #include "problem.h"
 #include "solver.h"
 #include <stdbool.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -121,6 +123,21 @@ problem_t problem_types[] = {
                      {4, true},
                      {4, true},
                      {4, false},
+                     {4, true},
+                     {4, true},
+                     {4, true},
+                     {4, true}}},
+    {.blank = STANDARD_BLANK,
+     .reverse_lookup = reverse_lookup_standard,
+     .n_pieces = 8,
+     .piece_position_num = {48, 80, 96, 150, 151, 154, 196, 198},
+     .pieces = {0xE0E0000000000000, 0xE020200000000000, 0xA0E0000000000000,
+                0xC0F0000000000000, 0x10F0000000000000, 0x40F0000000000000,
+                0xC0C0800000000000, 0x80E0000000000000},
+     .piece_props = {{2, false},
+                     {4, false},
+                     {4, false},
+                     {4, true},
                      {4, true},
                      {4, true},
                      {4, true},
@@ -252,7 +269,7 @@ status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
     return WRONG_INPUT;
   }
 
-  memcpy(prob, &problem_types[0],
+  memcpy(prob, &problem_types[STANDARD_PROBLEM_INDEX],
          sizeof(problem_t)); // Copy problem from template
 
   prob->problem =
@@ -264,7 +281,7 @@ status_t make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2) {
     return WRONG_INPUT;
   }
 
-  memcpy(prob, &problem_types[1],
+  memcpy(prob, &problem_types[T_PROBLEM_INDEX],
          sizeof(problem_t)); // Copy problem from template
 
   prob->problem =
@@ -279,7 +296,7 @@ status_t make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
     return WRONG_INPUT;
   }
 
-  memcpy(prob, &problem_types[2],
+  memcpy(prob, &problem_types[WEEKDAYS_PROBLEM_INDEX],
          sizeof(problem_t)); // Copy problem from template
 
   prob->problem = prob->blank | ((board_t)0x01 << pos1) |
@@ -287,9 +304,24 @@ status_t make_problem_weekday(problem_t *prob, uint32_t pos1, uint32_t pos2,
   return STATUS_OK;
 }
 
+status_t make_problem_faceup8(problem_t *prob, uint32_t pos1, uint32_t pos2) {
+  if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
+    return WRONG_INPUT;
+  }
+
+  memcpy(prob, &problem_types[FACEUP8_PROBLEM_INDEX],
+         sizeof(problem_t)); // Copy problem from template
+
+  prob->problem =
+      prob->blank | ((board_t)0x01 << pos1) | ((board_t)0x01 << pos2);
+  return STATUS_OK;
+}
+
 status_t make_from_date(problem_t *prob, uint32_t day, uint32_t month) {
 
-  return make_problem_standard(prob, month_location(month), day_location(day));
+  // return make_problem_standard(prob, month_location(month),
+  // day_location(day));
+  return make_problem_faceup8(prob, month_location(month), day_location(day));
 }
 status_t make_from_date_weekday(problem_t *prob, uint32_t day, uint32_t month,
                                 uint32_t wd) {

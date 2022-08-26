@@ -10,6 +10,13 @@
 #include "config.h"
 #include "utils.h"
 
+
+#define STANDARD_PROBLEM_INDEX 0
+#define T_PROBLEM_INDEX 1
+#define WEEKDAYS_PROBLEM_INDEX 2
+#define FACEUP8_PROBLEM_INDEX 5
+
+
 typedef struct problem_t {
   // Blank board
   board_t blank;
@@ -48,4 +55,4 @@ status_t make_from_date(problem_t *prob, uint32_t day, uint32_t month);
 status_t make_from_date_weekday(problem_t *prob, uint32_t day, uint32_t month,
                                 uint32_t wd);
 
-      
+status_t make_problem_faceup8(problem_t *prob, uint32_t pos1, uint32_t pos2);

@@ -261,14 +261,19 @@ void print_usageprint_partial_help() {
 }
 
 void print_usage() {
-  printf("Usage: ./pad [day/month/weekday] [day/month/weekday] "
-         "{day/month/weekday} {faceup/facedown} {t} {id,y,x,rot,flip}\n");
+  printf(
+      "Usage: ./pad [day/month/weekday] [day/month/weekday] "
+      "{day/month/weekday} {faceup/facedown} [PIECE-SET] {id,y,x,rot,flip}\n");
 
   printf("\n");
   printf("  Eg. for 25. May, Sunday - ./pad may sun 25\n");
   printf("  faceup - restricts to only faceup solutions\n");
   printf("  facedown - restricts to only facedown solutions\n");
-  printf("  t - uses the T version of the puzzle\n");
+  printf("  PIECE-SET - use an alternative piece set\n");
+  printf("      t   - uses the T version of the puzzle\n");
+  printf(
+      "      fu8 - uses the FaceUp 8-uniqe optimized version of the puzzle\n");
+  printf("      c   - uses a custom set of pieces for the puzzle\n");
   printf("  {id,y,x,rot,flip} - allows finding solutions for partially filled "
          "puzzles\n");
   printf("                      specify piece id, x and y position, rotation "
@@ -279,15 +284,19 @@ void print_usage() {
   problem_t problem2;
   problem_t problem3;
   problem_t problem4;
+  problem_t problem5;
   make_problem_standard(&problem1, 14, 15);
   make_problem_t(&problem2, 14, 15);
-  make_problem_weekday(&problem3, 14, 15, 16);
-  make_generic(&problem4);
+  make_problem_faceup8(&problem3, 14, 15);
+  make_problem_weekday(&problem4, 14, 15, 16);
+  make_generic(&problem5);
   // Print table
-  printf("  Standard        T-Pieces      Weekend Pieces     8x8 puzzle\n");
+  printf("  Standard        T-Pieces   FaceUp8 Optimized   Weekend "
+         "Pieces     8x8 puzzle\n");
 
   for (int i = 0; i < MAX_PIECES; i++) {
-    printf("-------------------------------------------------------------\n");
+    printf("-------------------------------------------------------------------"
+           "--------------\n");
     for (int line = 0; line < 3; line++) {
       char buffer[1024];
       char *pbuf = buffer;
@@ -321,6 +330,12 @@ void print_usage() {
 
       if (i < problem4.n_pieces) {
         pbuf += get_piece_line(problem4.pieces[i], i, line, pbuf);
+      } else {
+        strcpy(pbuf, "                ");
+        pbuf += 16;
+      }
+      if (i < problem5.n_pieces) {
+        pbuf += get_piece_line(problem5.pieces[i], i, line, pbuf);
       } else {
         strcpy(pbuf, "                ");
         pbuf += 16;

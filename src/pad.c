@@ -16,7 +16,8 @@ enum puzzle_mode {
   CUSTOM_PIECES,
   T_PUZZLE,
   WEEKEND_PUZZLE,
-  GENERIC8x8_PUZZLE
+  GENERIC8x8_PUZZLE,
+  FACEUP8_PUZZEL
 };
 
 int main(int argc, char *argv[]) {
@@ -73,6 +74,9 @@ int main(int argc, char *argv[]) {
     } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
                strcmp(argv[arg_i], "c") == 0) {
       mode = CUSTOM_PIECES;
+    } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
+               strcmp(argv[arg_i], "fu8") == 0) {
+      mode = FACEUP8_PUZZEL;
     } else {
       piece_location_t *ploc = placed_pieces + n_placed_pieces;
       int temp_flip;
@@ -100,6 +104,10 @@ int main(int argc, char *argv[]) {
                          0xe0c0000000000000, 0xe060000000000000,
                          0x10f0000000000000, 0xe0e0000000000000};
     ret = make_problem(&problem, pieces, locations[0], locations[1]);
+    break;
+  case FACEUP8_PUZZEL:
+    printf("Face-Up Optimized 8-Unique Puzzel\n");
+    ret = make_problem_faceup8(&problem, locations[0], locations[1]);
     break;
   case T_PUZZLE:
     printf("Soliving T Puzzle\n");
