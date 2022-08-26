@@ -1,6 +1,7 @@
 #include "problem.h"
 #include "solver.h"
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 const char *reverse_lookup_weekdays[] = {
@@ -27,10 +28,16 @@ const char *reverse_lookup_generic[] = {
     "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
     "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"};
 
+#define EMPTY_BLANK                                                            \
+  0b0000000000000000000000000000000000000000000000000000000000000000
+#define STANDARD_BLANK                                                         \
+  0b0000001100000011000000010000000100000001000000010001111111111111
+#define WEEKDAYS_BLANK                                                         \
+  0b0000001100000011000000010000000100000001000000010000000111110001
+
 problem_t problem_types[] = {
     // Standard Problem
-    {.blank =
-         0b0000001100000011000000010000000100000001000000010001111111111111,
+    {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
      .piece_position_num = {48, 80, 82, 96, 151, 154, 154, 196},
@@ -47,8 +54,7 @@ problem_t problem_types[] = {
                      {4, true}}},
 
     // Standard Problem T
-    {.blank =
-         0b0000001100000011000000010000000100000001000000010001111111111111,
+    {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
      .piece_position_num = {48, 80, 82, 96, 151, 154, 154, 196},
@@ -64,8 +70,7 @@ problem_t problem_types[] = {
                      {4, true},
                      {4, true}}},
     // Weekdays problem
-    {.blank =
-         0b0000001100000011000000010000000100000001000000010000000111110001,
+    {.blank = WEEKDAYS_BLANK,
      .reverse_lookup = reverse_lookup_weekdays,
      .n_pieces = 10,
      .piece_position_num = {55, 100, 102, 102, 118, 122, 191, 194, 240, 242},
@@ -83,8 +88,7 @@ problem_t problem_types[] = {
                      {4, true},
                      {4, true},
                      {4, true}}},
-    {.blank =
-         0b0000000000000000000000000000000000000000000000000000000000000000,
+    {.blank = EMPTY_BLANK,
      .reverse_lookup = reverse_lookup_generic,
      .n_pieces = 11,
      .piece_position_num = {512, 512, 512, 512, 512, 512, 512, 512, 512, 512,
@@ -106,8 +110,7 @@ problem_t problem_types[] = {
                      {4, false},
                      {1, false},
                      {4, true}}},
-    {.blank =
-         0b0000001100000011000000010000000100000001000000010001111111111111,
+    {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
      .piece_position_num = {512, 512, 512, 512, 512, 512, 512, 512},
@@ -124,6 +127,35 @@ problem_t problem_types[] = {
                      {4, true}}}
 
 };
+
+int parse_standard_problem(FILE *fp, problem_t *p) {
+  p->reverse_lookup = reverse_lookup_standard;
+  p->blank = STANDARD_BLANK;
+  p->n_pieces = 0;
+
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  size_t n = 0;
+  while (n < MAX_NUM_SOLUTIONS && (read = getline(&line, &len, fp)) != -1) {
+    piece_t piece = strtoul(line, NULL, 16);
+    if (piece == 0) {
+      return 1;
+    }
+
+    p->n_pieces++;
+    p->piece_position_num[n] = 512;
+    p->pieces[n] = piece;
+    p->piece_props[n] = get_piece_properties(piece);
+
+    printf("%s", line);
+    n++;
+  }
+
+  if (line)
+    free(line);
+  return 0;
+}
 
 uint32_t month_location(uint32_t month) {
   if (month > 12) {

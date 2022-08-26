@@ -4,6 +4,7 @@
 #include "board.h"
 #include "piece.h"
 #include <stdint.h>
+#include <unistd.h>
 #include <stdio.h>
 
 #include "config.h"
@@ -25,7 +26,7 @@ typedef struct problem_t {
 
 } problem_t;
 
-
+int parse_standard_problem(FILE *fp, problem_t *p);
 
 uint32_t month_location(uint32_t month);
 
