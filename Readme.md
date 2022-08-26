@@ -11,7 +11,7 @@ The solver can be restricted to only find solutions with pieces faced up/down, h
 The standard puzzle formulation from this Kickstarter [A-Puzzle-A-Day](https://www.kickstarter.com/projects/dragonfjord/a-puzzle-a-day) consists of a board with Months and Days and the goal is to fit the 8 pieces onto the board with the two remaining squares showing the current date. Naturally some days have more than one solution, some can be solved with all pieces facing up, some combinations however are impossible. This tool helps to uncover it all.
 
 
-## Usage
+## Basic Usage
 
 ```bash
 $ # Building using Make
@@ -25,6 +25,58 @@ $ ./pad mar 14 facedown
 
 ### Example Run
 ![Asciicast Demo](./demo/demo.svg)
+
+## Advanced Features
+
+1. Finding solutions for alternative board layouts (Including Weekday Positions, Blank 8x8)
+  One can change to the extended Weeek-Day puzzle by specifying 3 target positons (Day, Month, WeekDay)
+  
+```bash
+$ # Find solutions for 14 March, Friday with all tiles facing up
+$ ./pad mar 14 fri faceup
+
+$ # Find solutions for Friday, Saturday, Sunday
+$ ./pad sat sun fri
+```
+<img src="./demo/weekdays.png"  width=50%>
+  
+2. Finding solutions for pre-placed pieces
+  One can fix a piece position and restrict the solutions that match it
+
+```bash
+$ # Find solutions for 14 March, With Piece 7 placed at (4,1), rotated 3x and flipped
+$ ./pad mar 14 7,4,1,3,1
+```
+
+<img src="./demo/placement.png"  width=50%>
+
+
+3. Using alternative board pieces (T-shape, Face-Up optimized)
+  Alternative board pieces can be selected for alternative puzzle solutions
+```bash
+$ # Find solutions for 14 March, Using the T piece puzzle version
+$ ./pad mar 14 t
+$ # Find solutions for 14 March, Using the FaceUp optimized puzzle version
+$ ./pad mar 14 fu8
+```
+<img src="./demo/fu8.png"  width=50%>
+
+4. Loading custom board pices from a text file
+  Alternative board pieces can be specified using a text files
+```bash
+$ # Find solutions for 14 March, Facing up, using cusom pieces defined in the `pieces.txt` file
+$ ./pad mar 14 c=pieces.txt faceup
+```
+
+<img src="./demo/custom.png"  width=100%>
+
+5. Disable printing, only show solution count
+```bash
+$ # Only print number of faceup solutions for 14 March, not the actual placement
+$ ./pad mar 14 faceup noprint
+```
+<img src="./demo/noprint.png"  width=50%>
+
 
 ## The Game
 ### Standard Board
@@ -158,7 +210,7 @@ $ ./pad mar 14 facedown
     ```
 
 # Todo
- - [ ] Add easier support for Multiple Piece types
- - [ ] Support for alternate board layouts
- - [ ] Support for Days of week
+ - [x] Add easier support for Multiple Piece types
+ - [x] Support for alternate board layouts
+ - [x] Support for Days of week
  - [ ] Include tool for validating board and piece choice compatibility
