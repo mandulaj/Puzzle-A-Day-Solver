@@ -8,7 +8,7 @@
 static const char *colors[] = {
     "\x1b[41m",  "\x1b[42m",  "\x1b[43m",  "\x1b[44m",  "\x1b[45m", "\x1b[46m",
     "\x1b[47m",  "\x1b[103m", "\x1b[102m", "\x1b[104m", "\x1b[7m",  "\x1b[100m",
-    "\x1b[101m", "\x1b[105m", "\x1b[106m", "\x1b[107m"};
+    "\x1b[101m", "\x1b[105m", "\x1b[106m", "\x1b[107m", "\x1b[0m"};
 static const char *reset = "\x1b[0m";
 
 const size_t n_colors = sizeof(colors) / sizeof(colors[0]);
@@ -89,7 +89,7 @@ int get_piece_line(piece_t p, int color, int line, char *buffer) {
     if (bit & p) {
       buffer += output_color(color, "  ", buffer, 32);
     } else {
-      buffer += output_color(11, "  ", buffer, 32);
+      buffer += output_color(16, "  ", buffer, 32);
     }
     bit >>= 1;
   }
