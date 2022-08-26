@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+
+#include <unistd.h>
 
 typedef uint64_t piece_t;
 
@@ -46,3 +49,5 @@ piece_properties_t get_piece_properties(const piece_t piece);
 uint64_t piece_order(piece_t p);
 
 bool same_piece(piece_t p1, piece_t p2);
+
+ssize_t parse_standard_pieces(FILE *fp, piece_t *p);

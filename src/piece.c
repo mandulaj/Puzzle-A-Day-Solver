@@ -1,6 +1,8 @@
 
+#define _GNU_SOURCE // enable getline
 
 #include "piece.h"
+#include "problem.h"
 #include <stdio.h>
 #include <x86intrin.h>
 
@@ -154,4 +156,34 @@ bool same_piece(piece_t p1, piece_t p2) {
     p2 = piece_flip(p2);
   }
   return false;
+}
+
+ssize_t parse_standard_pieces(FILE *fp, piece_t *p) {
+
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  size_t n = 0;
+  while (n < MAX_PIECES && (read = getline(&line, &len, fp)) != -1) {
+    piece_t piece = strtoul(line, NULL, 16);
+    if (piece == 0) {
+      return -1;
+    }
+
+    p[n++] = piece;
+  }
+
+  // Check how many sqauares we cover
+  int total = 2 + piece_order(STANDARD_BLANK);
+  for (int i = 0; i < n; i++) {
+    total += piece_order(p[i]);
+  }
+
+  if (total != 64) {
+    return -2;
+  }
+
+  if (line)
+    free(line);
+  return n;
 }

@@ -22,3 +22,5 @@ void print_raw_color(piece_t pattern, int color);
 void print_color(const char *text, int c);
 
 void print_rgb(const char *text, int r, int g, int b);
+
+int get_piece_line(piece_t p, int color, int line, char *buffer);

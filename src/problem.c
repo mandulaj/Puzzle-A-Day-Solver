@@ -30,13 +30,6 @@ const char *reverse_lookup_generic[] = {
     "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
     "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"};
 
-#define EMPTY_BLANK                                                            \
-  0b0000000000000000000000000000000000000000000000000000000000000000
-#define STANDARD_BLANK                                                         \
-  0b0000001100000011000000010000000100000001000000010001111111111111
-#define WEEKDAYS_BLANK                                                         \
-  0b0000001100000011000000010000000100000001000000010000000111110001
-
 problem_t problem_types[] = {
     // Standard Problem
     {.blank = STANDARD_BLANK,
@@ -249,6 +242,31 @@ status_t make_problem(problem_t *prob, piece_t *pieces, uint32_t pos1,
   prob->blank = problem_types[0].blank;
   prob->problem = problem_types[0].blank;
   prob->reverse_lookup = problem_types[0].reverse_lookup;
+
+  struct solution_restrictions res = {true, true};
+
+  for (int i = 0; i < prob->n_pieces; i++) {
+    prob->pieces[i] = pieces[i];
+    prob->piece_props[i] = get_piece_properties(pieces[i]);
+    prob->piece_position_num[i] = make_positions(
+        prob->pieces[i], prob->piece_props[i], prob->blank, NULL, res);
+  }
+
+  prob->problem =
+      prob->blank | ((board_t)0x01 << pos1) | ((board_t)0x01 << pos2);
+  return STATUS_OK;
+}
+
+status_t make_problem_nPcs(problem_t *prob, piece_t *pieces, size_t n_pcs,
+                           uint32_t pos1, uint32_t pos2) {
+  if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2 || n_pcs > MAX_PIECES) {
+    return WRONG_INPUT;
+  }
+
+  prob->n_pieces = n_pcs;
+  prob->blank = problem_types[STANDARD_PROBLEM_INDEX].blank;
+  prob->problem = problem_types[STANDARD_PROBLEM_INDEX].blank;
+  prob->reverse_lookup = problem_types[STANDARD_PROBLEM_INDEX].reverse_lookup;
 
   struct solution_restrictions res = {true, true};
 

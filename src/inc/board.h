@@ -13,6 +13,7 @@
 #include "piece.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <unistd.h>
 
 /**
  * Board state representing occupied positions as `1`

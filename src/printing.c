@@ -273,7 +273,8 @@ void print_usage() {
   printf("      t   - uses the T version of the puzzle\n");
   printf(
       "      fu8 - uses the FaceUp 8-uniqe optimized version of the puzzle\n");
-  printf("      c   - uses a custom set of pieces for the puzzle\n");
+  printf(
+      "      c=[filename]   - uses a custom set of pieces from a given file\n");
   printf("  {id,y,x,rot,flip} - allows finding solutions for partially filled "
          "puzzles\n");
   printf("                      specify piece id, x and y position, rotation "

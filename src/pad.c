@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 enum puzzle_mode {
   NONE_PUZZLE,
@@ -40,6 +41,7 @@ int main(int argc, char *argv[]) {
   piece_location_t placed_pieces[MAX_PIECES];
   uint32_t n_placed_pieces = 0;
   bool print_solutions = true;
+  char *file_path = "";
 
   if (mode == NONE_PUZZLE) {
     mode = STANDARD_PUZZLE;
@@ -72,8 +74,9 @@ int main(int argc, char *argv[]) {
                strcmp(argv[arg_i], "t") == 0) {
       mode = T_PUZZLE;
     } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
-               strcmp(argv[arg_i], "c") == 0) {
+               strncmp(argv[arg_i], "c=", 2) == 0) {
       mode = CUSTOM_PIECES;
+      file_path = argv[arg_i] + 2;
     } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
                strcmp(argv[arg_i], "fu8") == 0) {
       mode = FACEUP8_PUZZEL;
@@ -99,11 +102,43 @@ int main(int argc, char *argv[]) {
     break;
   case CUSTOM_PIECES:
     printf("Custom Pieces Puzzle\n");
-    piece_t pieces[8] = {0x40f0000000000000, 0x70c0000000000000,
-                         0xc080c00000000000, 0x2020e00000000000,
-                         0xe0c0000000000000, 0xe060000000000000,
-                         0x10f0000000000000, 0xe0e0000000000000};
-    ret = make_problem(&problem, pieces, locations[0], locations[1]);
+
+    FILE *file;
+
+    if (!(file = fopen(file_path, "r"))) {
+
+      printf("File %s doesn't exist", file_path);
+      exit(1);
+    }
+
+    piece_t pieces[11] = {0};
+    ssize_t n_pieces;
+    n_pieces = parse_standard_pieces(file, pieces);
+    fclose(file);
+
+    if (n_pieces < 0) {
+      if (n_pieces == -2) {
+        printf("Sum of piece squres must cover the board.\n");
+      } else {
+
+        printf("Failed parsing the file %s\n", file_path);
+      }
+      exit(1);
+    }
+    ret = make_problem_nPcs(&problem, pieces, (size_t)n_pieces, locations[0],
+                            locations[1]);
+
+    char buffer[1024];
+
+    for (int line = 0; line < 6; line++) {
+      char *pbuf = buffer;
+      for (int i = 0; i < n_pieces; i++) {
+
+        pbuf += get_piece_line(problem.pieces[i], i, line, pbuf);
+        pbuf -= 10;
+      }
+      printf("%s\n", buffer);
+    }
     break;
   case FACEUP8_PUZZEL:
     printf("Face-Up Optimized 8-Unique Puzzel\n");
