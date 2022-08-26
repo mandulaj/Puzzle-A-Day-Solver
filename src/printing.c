@@ -1,28 +1,57 @@
 
-
+#include "printing.h"
 #include "piece.h"
 #include "problem.h"
 #include "solver.h"
 #include <stdio.h>
 #include <string.h>
+static const char *colors[] = {
+    "\x1b[41m",  "\x1b[42m",  "\x1b[43m",  "\x1b[44m",  "\x1b[45m", "\x1b[46m",
+    "\x1b[47m",  "\x1b[103m", "\x1b[102m", "\x1b[104m", "\x1b[7m",  "\x1b[100m",
+    "\x1b[101m", "\x1b[105m", "\x1b[106m", "\x1b[107m"};
+static const char *reset = "\x1b[0m";
+
+const size_t n_colors = sizeof(colors) / sizeof(colors[0]);
 
 static int output_color(int i, const char *text, char *buffer, size_t n) {
-  char *colors[] = {"\x1b[41m",  "\x1b[42m",  "\x1b[43m", "\x1b[44m",
-                    "\x1b[45m",  "\x1b[46m",  "\x1b[47m", "\x1b[103m",
-                    "\x1b[102m", "\x1b[104m", "\x1b[7m",  "\x1b[0m"};
-  char *reset = "\x1b[0m";
 
-  return snprintf(buffer, n, "%s%s%s", colors[i], text, reset);
+  return snprintf(buffer, n, "%s%s%s", colors[i % n_colors], text, reset);
+}
+static int output_color_rgb(const char *text, char *buffer, size_t n,
+                            rgb_color_t c) {
+  int r = (c >> 16) & 0xFF;
+  int g = (c >> 8) & 0xFF;
+  int b = c & 0xFF;
+  return snprintf(buffer, n, "\x1b[38;2;%d;%d;%dm%s\x1b[0m", r, g, b, text);
 }
 
-static void print_color(int i, const char *text) {
+void print_color(const char *text, int c) {
+  printf("%s%s%s", colors[c % n_colors], text, reset);
+}
+
+void print_rgb(const char *text, int r, int g, int b) {
+  r %= 256;
+  g %= 256;
+  b %= 256;
+
+  printf("\x1b[38;2;%d;%d;%dm%s%s", r, g, b, text, reset);
+}
+
+static void print_color_buffer(int i, const char *text) {
   char buffer[32];
 
   output_color(i, text, buffer, 32);
   printf("%s", buffer);
 }
 
-static void print_color_square(int i) { print_color(i, "  "); }
+static void print_color_square(int i) { print_color_buffer(i, "  "); }
+
+static void print_rgb_square(rgb_color_t c) {
+  int r = (c >> 16) & 0xFF;
+  int g = (c >> 8) & 0xFF;
+  int b = c & 0xFF;
+  printf("\x1b[38;2;%d;%d;%dm  \x1b[0m", r, g, b);
+}
 
 void print_solution(const solution_t *solution, const problem_t *problem) {
   piece_t bit = 0x8000000000000000;
@@ -67,6 +96,22 @@ int get_piece_line(piece_t p, int color, int line, char *buffer) {
 
   return buffer - p_start - 1;
 }
+int get_piece_line_rgb(piece_t p, rgb_color_t color, int line, char *buffer) {
+  p = piece_origin(p); // Move pice to corner
+  char *p_start = buffer;
+
+  piece_t bit = 0x8000000000000000 >> 8 * line;
+  for (int i = 0; i < 8; i++) {
+    if (bit & p) {
+      buffer += output_color_rgb("  ", buffer, 128, color);
+    } else {
+      buffer += output_color_rgb("  ", buffer, 128, 0);
+    }
+    bit >>= 1;
+  }
+
+  return buffer - p_start - 1;
+}
 
 void print_piece(piece_t p, int color) {
   p = piece_origin(p); // Move pice to corner
@@ -84,6 +129,32 @@ void print_piece(piece_t p, int color) {
     for (int j = 0; j < 8; j++) {
       if (bit & p) {
         print_color_square(color);
+      } else {
+        printf("  ");
+      }
+      bit >>= 1;
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+void print_piece_rgb(piece_t p, rgb_color_t color) {
+  p = piece_origin(p); // Move pice to corner
+
+  piece_t bit = 0x8000000000000000;
+  piece_t line = 0xFF00000000000000;
+  for (int i = 0; i < 8; i++) {
+    piece_t line_clear = p & line;
+    line >>= 8;
+    if (line_clear == 0) {
+      bit >>= 8;
+      continue;
+    }
+
+    for (int j = 0; j < 8; j++) {
+      if (bit & p) {
+        print_rgb_square(color);
       } else {
         printf("  ");
       }
@@ -125,7 +196,7 @@ void print_piece_board(piece_t p, const problem_t *problem, int color) {
         snprintf(buffer, 3, "%2.2s", repr);
 
         if (bit & problem->problem) {
-          print_color(10, buffer);
+          print_color_buffer(10, buffer);
         } else {
           printf("%s", buffer);
         }
@@ -160,7 +231,7 @@ void print_partial_solution(const piece_location_t *pieces, size_t n_p,
       snprintf(buffer, 3, "%2.2s", repr);
 
       if (bit & problem->problem) {
-        print_color(10, buffer);
+        print_color_buffer(10, buffer);
       } else {
         printf("%s", buffer);
       }
