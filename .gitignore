@@ -1,7 +1,11 @@
 *.o
 build
 
+main
 pad
 statistics
 .vscode
 *.csv
+*.txt
+
+perf.*

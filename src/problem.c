@@ -339,7 +339,7 @@ status_t make_from_date(problem_t *prob, uint32_t day, uint32_t month) {
 
   // return make_problem_standard(prob, month_location(month),
   // day_location(day));
-  return make_problem_faceup8(prob, month_location(month), day_location(day));
+  return make_problem_standard(prob, month_location(month), day_location(day));
 }
 status_t make_from_date_weekday(problem_t *prob, uint32_t day, uint32_t month,
                                 uint32_t wd) {
