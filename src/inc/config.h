@@ -14,5 +14,7 @@
 
 // Statistics config
 
+#define CACHE_LINE_SIZE 64
+
 #define ONLY_VALID_DATES
 //#define INCLUDE_WEEKDAYS
