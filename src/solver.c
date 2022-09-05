@@ -12,6 +12,8 @@
 #include "solver.h"
 #include "utils.h"
 #include <immintrin.h>
+#include <x86intrin.h>
+
 #include <stdbool.h>
 #include <string.h>
 
@@ -77,10 +79,16 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
           return INVALID_POSITION;
         }
 
-        sol->sol_patterns[i] = aligned_alloc(32, 4 * sizeof(piece_t));
+        sol->sol_patterns[i] =
+            aligned_alloc(CACHE_LINE_SIZE, 4 * sizeof(piece_t));
         memset(sol->sol_patterns[i], 0xAA, 4 * sizeof(piece_t));
         sol->sol_patterns[i][0] = p;
         sol->sol_patterns_num[i] = 1;
+
+        sol->sol_partials[i] =
+            aligned_alloc(CACHE_LINE_SIZE, 4 * sizeof(piece_t));
+        sol->sol_partials_idxs[i] =
+            aligned_alloc(CACHE_LINE_SIZE, 4 * sizeof(size_t));
         placed_piece = true;
         break;
       }
@@ -88,8 +96,13 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
 
     if (!placed_piece) {
       size_t nearest_mul4 = ((problem->piece_position_num[i] + 4 - 1) / 4) * 4;
-      sol->sol_patterns[i] = aligned_alloc(32, nearest_mul4 * sizeof(piece_t));
-      if (sol->sol_patterns[i] == NULL) {
+      sol->sol_patterns[i] =
+          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(piece_t));
+      sol->sol_partials[i] =
+          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(piece_t));
+      sol->sol_partials_idxs[i] =
+          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(size_t));
+      if (sol->sol_patterns[i] == NULL || sol->sol_partials[i] == NULL) {
         printf("Failed ot allocate viable_sub_solutions array.\n");
         return MEMORY_ERROR;
       }
@@ -136,6 +149,8 @@ status_t init_solutions(solutions_t *sol, const problem_t *problem,
 status_t destroy_solutions(solutions_t *sol) {
   for (int i = 0; i < sol->n_pieces; i++) {
     free(sol->sol_patterns[i]);
+    free(sol->sol_partials[i]);
+    free(sol->sol_partials_idxs[i]);
   }
   free(sol->solutions);
   return STATUS_OK;
@@ -217,7 +232,7 @@ __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
   return STATUS_OK;
 }
 
-static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
+static status_t solve_rec_simd_old(solutions_t *sol, board_t problem) {
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
 
@@ -226,8 +241,8 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   __m256i vec_zero = _mm256_set1_epi64x(0x0000000000000000);
 
-  piece_t pp_and_buffer[4] __attribute__((aligned(32)));
-  piece_t pp_or_buffer[4] __attribute__((aligned(32)));
+  piece_t pp_and_buffer[4] __attribute__((aligned(CACHE_LINE_SIZE)));
+  piece_t pp_or_buffer[4] __attribute__((aligned(CACHE_LINE_SIZE)));
 
   piece_t *p_patterns = sol->sol_patterns[current_index];
 
@@ -268,7 +283,7 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
           } else {
             if (check_holes(pp_or_buffer[j])) {
               sol->current_level++;
-              ret = solve_rec_simd(sol, pp_or_buffer[j]);
+              ret = solve_rec_simd_old(sol, pp_or_buffer[j]);
               if (ret) {
                 if (ret == WARNING) {
                   break;
@@ -283,6 +298,132 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
     }
 
     p_patterns += 4;
+  }
+
+  if (current_level > 0)
+    sol->current_level--;
+
+  return STATUS_OK;
+}
+static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
+  const size_t current_level = sol->current_level;
+  const size_t current_index = sol->sorted_sol_indexes[current_level];
+  status_t ret;
+
+  __m256i vec_problem = _mm256_set1_epi64x(problem);
+  __m256i vec_zero = _mm256_set1_epi64x(0x0000000000000000);
+  __m256i idx = _mm256_set_epi64x(3, 2, 1, 0);
+  __m256i fours = _mm256_set_epi64x(4, 4, 4, 4);
+
+  piece_t *p_patterns = sol->sol_patterns[current_index];
+  piece_t *p_partials = sol->sol_partials[current_index];
+  piece_t *p_partials_idx = sol->sol_partials_idxs[current_index];
+
+  size_t matches = 0;
+
+  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
+
+    __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
+
+    __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
+
+    // Set to 0xFFFF.. if any is zero
+    __m256i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
+
+    // printf("%d  ", i);
+    // for (int b = 3; b >= 0; b--) {
+    //   printf("%d ", 0x01 & (mask >> b));
+    // }
+    // printf(" PopCnt: %d\n", __popcntd(mask));
+
+    // print_piece(p_patterns[0] | problem, i % 10);
+
+    int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
+    if (mask) {
+
+      int num_matches = __popcntd(mask);
+      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
+      // 1 1 0 1
+
+      // 11 10 01 00
+
+      // 11 11 10 00
+
+      uint64_t expanded_mask =
+          _pdep_u64(mask, 0x001000100010001); // unpack each bit to a byte
+      expanded_mask *= 0xFFFF;
+
+      // for (int b = 63; b >= 0; b--) {
+      //   printf("%d", 0x01 & (expanded_mask >> b));
+      // }
+      // printf("\n");
+
+      const uint64_t identity_indices =
+          0x0706050403020100; // the identity shuffle for vpermps, packed to one
+                              // index per byte
+      uint64_t wanted_indices = _pext_u64(identity_indices, expanded_mask);
+
+      // for (int b = 63; b >= 0; b--) {
+      //   printf("%d", 0x01 & (wanted_indices >> b));
+      // }
+      // printf("\n");
+
+      __m128i bytevec = _mm_cvtsi64_si128(wanted_indices);
+      __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
+
+      __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
+      __m256i filt_idxs = _mm256_permutevar8x32_epi32(idx, shufmask);
+
+      _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
+      _mm256_storeu_si256((__m256i *)p_partials_idx, filt_idxs);
+
+      p_partials += num_matches;
+      p_partials_idx += num_matches;
+      matches += num_matches;
+    }
+
+    p_patterns += 4;
+    idx = _mm256_add_epi64(idx, fours);
+  }
+
+  p_partials = sol->sol_partials[current_index];
+  p_partials_idx = sol->sol_partials_idxs[current_index];
+
+  for (int i = 0; i < matches; i++) {
+    // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
+    // print_piece(p_partials[i], current_level);
+
+    sol->sol_pattern_index[current_index] = p_partials_idx[i];
+
+    if (p_partials[i] == 0xFFFFFFFFFFFFFFFF) {
+      // printf("Found Solution\n");
+      ret = push_solution(sol);
+      if (ret) {
+        if (ret == WARNING)
+          break;
+        return ret;
+      }
+
+      sol->current_level--;
+      return STATUS_OK; // We are at the end, we will not fit anywhere
+                        // else
+    } else {
+      // printf("Checking Holes\n");
+      if (check_holes(p_partials[i])) {
+        // printf("Holes passed, recursing\n");
+        sol->current_level++;
+        ret = solve_rec_simd(sol, p_partials[i]);
+        // printf("Done recursing %d\n", ret);
+
+        if (ret) {
+          if (ret == WARNING) {
+            break;
+          }
+          printf("Catching error\n");
+          return ret;
+        }
+      }
+    }
   }
 
   if (current_level > 0)
@@ -322,6 +463,16 @@ status_t solve_parallel(solutions_t *sol) {
     // Give each an individual solutions buffer
     sol_works[i].solutions =
         calloc(sol_works[i].max_solutions, sizeof(solution_t));
+
+    for (int j = 0; j < sol->n_pieces; j++) {
+      size_t nearest_mul4 =
+          ((sol_works[i].sol_patterns_num[j] + 4 - 1) / 4) * 4;
+      sol_works[i].sol_partials[j] =
+          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(piece_t));
+      sol_works[i].sol_partials_idxs[j] =
+          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(size_t));
+    }
+
     if (sol_works[i].solutions == NULL) {
       printf("Failed to allocate solutions array.\n");
       return MEMORY_ERROR;
@@ -371,6 +522,11 @@ status_t solve_parallel(solutions_t *sol) {
     // Copy the solutions over
     memcpy(&sol->solutions[solutions_end], sol_works[i].solutions,
            sizeof(solution_t) * sol_works[i].num_solutions);
+
+    for (int j = 0; j < sol->n_pieces; j++) {
+      free(sol_works[i].sol_partials[j]);
+      free(sol_works[i].sol_partials_idxs[j]);
+    }
 
     free(sol_works[i].solutions);
   }

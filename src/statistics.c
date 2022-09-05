@@ -120,20 +120,38 @@ int main() {
   }
 #else
 
-#pragma omp parallel for schedule(dynamic) collapse(2)
+#pragma omp parallel for collapse(2)
   for (int i1 = 0; i1 < 42; i1++) {
     for (int i2 = i1 + 1; i2 < 43; i2++) {
 
-      board_t problem = make_problem(index_location(i1), index_location(i2));
-      struct solutions sol;
+      problem_t problem;
+      make_problem_standard(&problem, index_location(i1), index_location(i2));
+      solutions_t sol1;
+      solutions_t sol2;
+      solutions_t sol3;
 
-      init_solutions(&sol, problem, restrictions);
+      init_solutions(&sol1, &problem, restrictions);
+      init_solutions(&sol2, &problem, restrictions_faceup);
+      init_solutions(&sol3, &problem, restrictions_facedown);
 
-      uint64_t num = solve(&sol);
+      solve(&sol1);
+      solve(&sol2);
+      solve(&sol3);
 
-      printf("%s,%s,%ld\n", reverse_lookup[index_location(i1)],
-             reverse_lookup[index_location(i2)], num);
-      destroy_solutions(&sol);
+      uint64_t numTotal = sol1.num_solutions;
+
+      uint64_t numFaceUp = sol2.num_solutions;
+
+      uint64_t numFaceDown = sol3.num_solutions;
+
+      destroy_solutions(&sol1);
+      destroy_solutions(&sol2);
+      destroy_solutions(&sol3);
+
+      printf("%s,%s,%ld, %ld, %ld\n",
+             problem.reverse_lookup[index_location(i1)],
+             problem.reverse_lookup[index_location(i2)], numTotal, numFaceUp,
+             numFaceDown);
     }
   }
 
