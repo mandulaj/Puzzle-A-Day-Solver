@@ -15,5 +15,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: make
       run: make
+    - name: lscpu
+      run: lscpu
     - name: benchmark
-      run: time ./statistics
+      run: for i in {1..30}; do time ./statistics > /dev/null; done
