@@ -15,6 +15,10 @@ jobs:
     - uses: actions/checkout@v3
     - name: make
       run: make
+    - name: gcc
+      run: gcc -dM -march=native -E - < /dev/null | egrep "AVX" | sort
+    - name: gcc-no512
+      run: gcc -dM -march=native -mno-avx512f -E - < /dev/null | egrep "AVX" | sort
     - name: lscpu
       run: lscpu
     - name: benchmark
