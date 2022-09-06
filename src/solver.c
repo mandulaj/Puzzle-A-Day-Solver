@@ -103,12 +103,12 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
     }
 
     if (!placed_piece) {
-      size_t nearest_mul4 = ((problem->piece_position_num[i] + 4 - 1) / 4) * 4;
+      size_t nearest_mul8 = ((problem->piece_position_num[i] + 8 - 1) / 8) * 8;
 
       // Allocate both piece buffers at the same time
       piece_t *buffers =
-          aligned_alloc(CACHE_LINE_SIZE, (nearest_mul4 * sizeof(piece_t) * 2) +
-                                             (nearest_mul4 * sizeof(size_t)));
+          aligned_alloc(CACHE_LINE_SIZE, (nearest_mul8 * sizeof(piece_t) * 2) +
+                                             (nearest_mul8 * sizeof(size_t)));
 
       if (buffers == NULL) {
         printf("Failed ot allocate viable_sub_solutions array.\n");
@@ -117,10 +117,10 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
 
       sol->sol_patterns[i] = buffers;
 
-      sol->sol_partials[i] = buffers + nearest_mul4;
-      sol->sol_partials_idxs[i] = (size_t *)(buffers + 2 * nearest_mul4);
+      sol->sol_partials[i] = buffers + nearest_mul8;
+      sol->sol_partials_idxs[i] = (size_t *)(buffers + 2 * nearest_mul8);
 
-      memset(sol->sol_patterns[i], 0xAA, nearest_mul4 * sizeof(piece_t));
+      memset(sol->sol_patterns[i], 0xAA, nearest_mul8 * sizeof(piece_t));
 
       // Optimized sol_patterns positions (eliminating invalid positions)
       sol->sol_patterns_num[i] =
@@ -319,20 +319,23 @@ static status_t solve_rec_simd_old(solutions_t *sol, board_t problem) {
 }
 
 static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
+
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
   status_t ret;
-
-  __m256i vec_problem = _mm256_set1_epi64x(problem);
-  __m256i vec_zero = _mm256_set1_epi64x(0x0000000000000000);
-  __m256i idx = _mm256_set_epi64x(3, 2, 1, 0);
-  __m256i fours = _mm256_set_epi64x(4, 4, 4, 4);
 
   piece_t *p_patterns = sol->sol_patterns[current_index];
   piece_t *p_partials = sol->sol_partials[current_index];
   piece_t *p_partials_idx = sol->sol_partials_idxs[current_index];
 
   size_t matches = 0;
+
+#if defined(SIMD_AVX2)
+
+  __m256i vec_problem = _mm256_set1_epi64x(problem);
+  __m256i vec_zero = _mm256_set1_epi64x(0);
+  __m256i vec_idx = _mm256_set_epi64x(3, 2, 1, 0);
+  __m256i vec_fours = _mm256_set1_epi64x(4);
 
   for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
 
@@ -385,7 +388,7 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
       __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
 
       __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
-      __m256i filt_idxs = _mm256_permutevar8x32_epi32(idx, shufmask);
+      __m256i filt_idxs = _mm256_permutevar8x32_epi32(vec_idx, shufmask);
 
       _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
       _mm256_storeu_si256((__m256i *)p_partials_idx, filt_idxs);
@@ -396,8 +399,56 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
     }
 
     p_patterns += 4;
-    idx = _mm256_add_epi64(idx, fours);
+    vec_idx = _mm256_add_epi64(vec_idx, vec_fours);
   }
+
+#elif defined(SIMD_AVX512)
+
+  __m512i vec_problem = _mm512_set1_epi64(problem);
+  __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
+  __m512i vec_idx = _mm512_set_epi64(7, 6, 5, 4, 3, 2, 1, 0);
+  __m512i vec_eights = _mm512_set1_epi64(8);
+
+  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 8) {
+
+    __m512i vec_patterns = _mm512_stream_load_si512((__m256i *)p_patterns);
+
+    __m512i vec_pp_and = _mm512_and_si512(vec_problem, vec_patterns);
+
+    // Set to 0xFFFF.. if any is zero
+    // __m512i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
+
+    __mmask8 mask = _mm512_cmpeq_epi64_mask(vec_pp_and, vec_zero);
+
+    // printf("%d  ", i);
+    // for (int b = 3; b >= 0; b--) {
+    //   printf("%d ", 0x01 & (mask >> b));
+    // }
+    // printf(" PopCnt: %d\n", __popcntd(mask));
+
+    // print_piece(p_patterns[0] | problem, i % 10);
+
+    // int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
+    if (mask) {
+
+      int num_matches = __popcntd(mask);
+      __m512i vec_pp_or = _mm512_or_si512(vec_problem, vec_patterns);
+
+      _mm512_mask_compressstoreu_epi64(p_partials, mask, vec_pp_or);
+      _mm512_mask_compressstoreu_epi64(p_partials_idx, mask, vec_idx);
+
+      p_partials += num_matches;
+      p_partials_idx += num_matches;
+      matches += num_matches;
+    }
+
+    p_patterns += 8;
+    vec_idx = _mm512_add_epi64(vec_idx, vec_eights);
+  }
+
+#else
+#error "Cant Use SIMD without AVX support"
+#endif
 
   p_partials = sol->sol_partials[current_index];
   p_partials_idx = sol->sol_partials_idxs[current_index];
