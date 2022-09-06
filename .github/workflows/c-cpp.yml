@@ -2,7 +2,7 @@ name: Benchmark
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "double_avx" ]
   pull_request:
     branches: [ "main" ]
 
@@ -13,13 +13,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: make
-      run: make
-    - name: gcc
-      run: gcc -dM -march=native -E - < /dev/null | egrep "AVX" | sort
-    - name: gcc-no512
-      run: gcc -dM -march=native -mno-avx512f -E - < /dev/null | egrep "AVX" | sort
     - name: lscpu
       run: lscpu
-    - name: benchmark
-      run: for i in {1..30}; do time ./statistics > /dev/null; done
+    - name: make_avx2
+      run: make 
+    - name: benchmark_avx2
+      run: make benchmark
+    - name: test_avx2
+      run: make test  
+    - name: make_avx512
+      run: make AVX512=
+    - name: benchmark_avx512
+      run: make benchmark
+    - name: test_avx512
+      run: make test
