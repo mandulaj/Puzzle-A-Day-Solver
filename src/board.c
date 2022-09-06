@@ -273,20 +273,22 @@ bool check_holes_simd_old_double(board_t board, const struct hole_checker *hc) {
 }
 
 static const uint32_t DOUBLE_HOLE_MASKS_VERTICAL[]
-    __attribute__((aligned(32))) = {
+    __attribute__((aligned(CACHE_LINE_SIZE))) = {
         0xC0C08000, 0xE0E04000, 0x70702000, 0x38381000, 0x1C1C0800, 0x0E0E0400,
         0x07070200, 0x03030100, 0x80C0C080, 0x40E0E040, 0x20707020, 0x10383810,
         0x081C1C08, 0x040E0E04, 0x02070702, 0x01030301, 0x0080C0C0, 0x0040E0E0,
         0x00207070, 0x00103838, 0x00081C1C, 0x00040E0E, 0x00020707, 0x00010303};
 
 static const uint32_t DOUBLE_HOLE_CROSSES_VERTICAL[]
-    __attribute__((aligned(32))) = {
+    __attribute__((aligned(CACHE_LINE_SIZE))) = {
         0x40408000, 0xa0a04000, 0x50502000, 0x28281000, 0x14140800, 0x0a0a0400,
         0x05050200, 0x02020100, 0x80404080, 0x40a0a040, 0x20505020, 0x10282810,
         0x08141408, 0x040a0a04, 0x02050502, 0x01020201, 0x00804040, 0x0040a0a0,
         0x00205050, 0x00102828, 0x00081414, 0x00040a0a, 0x00020505, 0x00010202};
 
 bool check_holes_simd_double(board_t board) {
+
+#if defined(SIMD_AVX2) || defined(SIMD_AVX512)
 
   uint32_t upper_board = (uint32_t)(board >> 32);
 
@@ -353,25 +355,33 @@ bool check_holes_simd_double(board_t board) {
   } else {
     return true;
   }
+
+#else
+#error "Cant use Check holes without SIMD"
+#endif
 }
 
-static const uint32_t SINGLE_HOLE_MASKS[32] __attribute__((aligned(32))) = {
-    0xC0800000, 0xE0400000, 0x70200000, 0x38100000, 0x1C080000, 0x0E040000,
-    0x07020000, 0x03010000, 0x80C08000, 0x40E04000, 0x20702000, 0x10381000,
-    0x081C0800, 0x040E0400, 0x02070200, 0x01030100, 0x0080C080, 0x0040E040,
-    0x00207020, 0x00103810, 0x00081C08, 0x00040E04, 0x00020702, 0x00010301,
-    0x000080C0, 0x000040E0, 0x00002070, 0x00001038, 0x0000081C, 0x0000040E,
-    0x00000207, 0x00000103};
+static const uint32_t SINGLE_HOLE_MASKS[32]
+    __attribute__((aligned(CACHE_LINE_SIZE))) = {
+        0xC0800000, 0xE0400000, 0x70200000, 0x38100000, 0x1C080000, 0x0E040000,
+        0x07020000, 0x03010000, 0x80C08000, 0x40E04000, 0x20702000, 0x10381000,
+        0x081C0800, 0x040E0400, 0x02070200, 0x01030100, 0x0080C080, 0x0040E040,
+        0x00207020, 0x00103810, 0x00081C08, 0x00040E04, 0x00020702, 0x00010301,
+        0x000080C0, 0x000040E0, 0x00002070, 0x00001038, 0x0000081C, 0x0000040E,
+        0x00000207, 0x00000103};
 
-static const uint32_t SINGLE_HOLE_CROSSES[32] __attribute__((aligned(32))) = {
-    0x40800000, 0xa0400000, 0x50200000, 0x28100000, 0x14080000, 0x0a040000,
-    0x05020000, 0x02010000, 0x80408000, 0x40a04000, 0x20502000, 0x10281000,
-    0x08140800, 0x040a0400, 0x02050200, 0x01020100, 0x00804080, 0x0040a040,
-    0x00205020, 0x00102810, 0x00081408, 0x00040a04, 0x00020502, 0x00010201,
-    0x00008040, 0x000040a0, 0x00002050, 0x00001028, 0x00000814, 0x0000040a,
-    0x00000205, 0x00000102};
+static const uint32_t SINGLE_HOLE_CROSSES[32]
+    __attribute__((aligned(CACHE_LINE_SIZE))) = {
+        0x40800000, 0xa0400000, 0x50200000, 0x28100000, 0x14080000, 0x0a040000,
+        0x05020000, 0x02010000, 0x80408000, 0x40a04000, 0x20502000, 0x10281000,
+        0x08140800, 0x040a0400, 0x02050200, 0x01020100, 0x00804080, 0x0040a040,
+        0x00205020, 0x00102810, 0x00081408, 0x00040a04, 0x00020502, 0x00010201,
+        0x00008040, 0x000040a0, 0x00002050, 0x00001028, 0x00000814, 0x0000040a,
+        0x00000205, 0x00000102};
 
 bool check_holes_single(board_t board) {
+
+#if defined(SIMD_AVX2) || defined(SIMD_AVX512)
   uint32_t upper_board = (uint32_t)(board >> 32);
   uint32_t middle_board = (uint32_t)(board >> 16);
   uint32_t lower_board = (uint32_t)(board);
@@ -436,6 +446,9 @@ bool check_holes_single(board_t board) {
     vec_lower_masks = _mm256_stream_load_si256((__m256i *)p_masks);
     vec_lower_crosses = _mm256_stream_load_si256((__m256i *)p_crosses);
   } while (1);
+#else
+#error "Cant use Check holes without SIMD"
+#endif
 }
 
 bool check_holes(board_t board) {

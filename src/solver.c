@@ -305,6 +305,7 @@ static status_t solve_rec_simd_old(solutions_t *sol, board_t problem) {
 
   return STATUS_OK;
 }
+
 static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
@@ -436,7 +437,14 @@ status_t solve(solutions_t *sol) {
   status_t res = STATUS_OK;
 
 #ifdef USE_SIMD
+
+#ifdef USE_OLD_SIMD
+  res = solve_rec_simd_old(sol, sol->problem);
+
+#else
   res = solve_rec_simd(sol, sol->problem);
+#endif
+
 #else
   res = solve_rec(sol, sol->problem);
 #endif
