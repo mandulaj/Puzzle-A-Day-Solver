@@ -79,16 +79,24 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
           return INVALID_POSITION;
         }
 
-        sol->sol_patterns[i] =
-            aligned_alloc(CACHE_LINE_SIZE, 4 * sizeof(piece_t));
+        // Allocate both piece buffers at the same time
+        piece_t *buffers = aligned_alloc(
+            CACHE_LINE_SIZE, (4 * sizeof(piece_t) * 2) + (4 * sizeof(size_t)));
+
+        if (buffers == NULL) {
+          return MEMORY_ERROR;
+        }
+
+        // Assign the two buffer halfs
+        sol->sol_patterns[i] = buffers;
+        sol->sol_partials[i] = buffers + 4;
+        sol->sol_partials_idxs[i] = (size_t *)(buffers + 2 * 4);
+
+        // Set up the 1 pattern
         memset(sol->sol_patterns[i], 0xAA, 4 * sizeof(piece_t));
         sol->sol_patterns[i][0] = p;
         sol->sol_patterns_num[i] = 1;
 
-        sol->sol_partials[i] =
-            aligned_alloc(CACHE_LINE_SIZE, 4 * sizeof(piece_t));
-        sol->sol_partials_idxs[i] =
-            aligned_alloc(CACHE_LINE_SIZE, 4 * sizeof(size_t));
         placed_piece = true;
         break;
       }
@@ -96,16 +104,22 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
 
     if (!placed_piece) {
       size_t nearest_mul4 = ((problem->piece_position_num[i] + 4 - 1) / 4) * 4;
-      sol->sol_patterns[i] =
-          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(piece_t));
-      sol->sol_partials[i] =
-          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(piece_t));
-      sol->sol_partials_idxs[i] =
-          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(size_t));
-      if (sol->sol_patterns[i] == NULL || sol->sol_partials[i] == NULL) {
+
+      // Allocate both piece buffers at the same time
+      piece_t *buffers =
+          aligned_alloc(CACHE_LINE_SIZE, (nearest_mul4 * sizeof(piece_t) * 2) +
+                                             (nearest_mul4 * sizeof(size_t)));
+
+      if (buffers == NULL) {
         printf("Failed ot allocate viable_sub_solutions array.\n");
         return MEMORY_ERROR;
       }
+
+      sol->sol_patterns[i] = buffers;
+
+      sol->sol_partials[i] = buffers + nearest_mul4;
+      sol->sol_partials_idxs[i] = (size_t *)(buffers + 2 * nearest_mul4);
+
       memset(sol->sol_patterns[i], 0xAA, nearest_mul4 * sizeof(piece_t));
 
       // Optimized sol_patterns positions (eliminating invalid positions)
@@ -148,9 +162,7 @@ status_t init_solutions(solutions_t *sol, const problem_t *problem,
 
 status_t destroy_solutions(solutions_t *sol) {
   for (int i = 0; i < sol->n_pieces; i++) {
-    free(sol->sol_patterns[i]);
-    free(sol->sol_partials[i]);
-    free(sol->sol_partials_idxs[i]);
+    free(sol->sol_patterns[i]); // Release all buffers
   }
   free(sol->solutions);
   return STATUS_OK;
