@@ -2,10 +2,18 @@ CC=gcc
 CFLAGS_release = -O3
 CFLAGS_debug = -O0 -g
 BUILD=release
+ARCH=native
+USE_AVX=avx2
 
-AVX512=-mno-avx512f
+ifeq ($(USE_AVX), avx2)
+	AVX_FLAGS=-mavx2 -mno-avx512f
+endif
 
-CFLAGS=-Wall -std=c17 ${CFLAGS_${BUILD}} -mbmi2  -mavx2 ${AVX512} -march=native -fopenmp -I ./src/inc  -Lbuild
+ifeq ($(USE_AVX), avx512)
+	AVX_FLAGS=-mavx2 -mavx512f	
+endif
+
+CFLAGS=-Wall -std=c17 ${CFLAGS_${BUILD}} -mbmi2 ${AVX_FLAGS} -march=${ARCH} -fopenmp -I ./src/inc  -Lbuild
 
 BUILD_DIR=build
 $(shell mkdir -p ${BUILD_DIR})

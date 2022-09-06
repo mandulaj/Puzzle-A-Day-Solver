@@ -22,7 +22,7 @@ jobs:
     - name: test_avx2
       run: make test  
     - name: make_avx512
-      run: make clean; make AVX512=-mavx512f
+      run: make clean; make USE_AVX=avx512
     - name: benchmark_avx512
       run: make benchmark
     - name: test_avx512
