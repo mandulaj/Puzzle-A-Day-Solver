@@ -15,6 +15,14 @@ int main() {
   struct solution_restrictions restrictions_faceup = {true, false};
   struct solution_restrictions restrictions_facedown = {false, true};
 
+#if defined(SIMD_AVX2)
+  fprintf(stderr, "Using AVX2\n");
+#elif defined(SIMD_AVX512)
+  fprintf(stderr, "Using AVX512\n");
+#else
+  fprintf(stderr, "Not using AVX\n");
+#endif
+
 #ifdef ONLY_VALID_DATES
 
 #pragma omp parallel for schedule(dynamic) collapse(2)
