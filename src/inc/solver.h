@@ -43,7 +43,7 @@ status_t init_solutions(solutions_t *sol, const problem_t *problem,
 
 status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
                                struct solution_restrictions restrictions,
-                               piece_location_t *placed_pieces,
+                               const piece_location_t *placed_pieces,
                                size_t n_placed_pieces);
 
 status_t destroy_solutions(solutions_t *sol);

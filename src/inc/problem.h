@@ -48,7 +48,7 @@ uint32_t weekday_location(uint32_t day);
 uint32_t index_location(uint32_t index);
 
 status_t make_generic(problem_t *prob);
-status_t make_problem(problem_t *prob, piece_t *pieces, uint32_t pos1,
+status_t make_problem(problem_t *prob, const piece_t *pieces, uint32_t pos1,
                       uint32_t pos2);
 status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2);
 status_t make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2);
@@ -60,5 +60,5 @@ status_t make_from_date_weekday(problem_t *prob, uint32_t day, uint32_t month,
 
 status_t make_problem_faceup8(problem_t *prob, uint32_t pos1, uint32_t pos2);
 
-status_t make_problem_nPcs(problem_t *prob, piece_t *pieces, size_t n_pcs,
+status_t make_problem_nPcs(problem_t *prob, const piece_t *pieces, size_t n_pcs,
                            uint32_t pos1, uint32_t pos2);

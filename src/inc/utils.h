@@ -15,5 +15,5 @@ typedef enum errors {
 
 const char *get_error_description(status_t s);
 
-int isNumber(char s[]);
-uint32_t parse_location(char *str);
+int isNumber(const char s[]);
+uint32_t parse_location(const char *str);

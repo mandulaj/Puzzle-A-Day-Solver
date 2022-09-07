@@ -17,7 +17,7 @@ const char *get_error_description(status_t s) {
   return ERROR_DESCRIPTIONS[WRONG_INPUT];
 }
 
-int isNumber(char s[]) {
+int isNumber(const char s[]) {
   for (int i = 0; s[i] != '\0'; i++) {
     if (isdigit(s[i]) == 0)
       return 0;
@@ -25,7 +25,7 @@ int isNumber(char s[]) {
   return 1;
 }
 
-uint32_t parse_location(char *str) {
+uint32_t parse_location(const char *str) {
   char *months[] = {"jan", "feb", "mar", "apr", "may", "jun",
                     "jul", "aug", "sep", "oct", "nov", "dec"};
 

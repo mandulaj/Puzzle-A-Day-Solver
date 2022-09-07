@@ -30,7 +30,7 @@ const char *reverse_lookup_generic[] = {
     "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
     "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"};
 
-problem_t problem_types[] = {
+const problem_t problem_types[] = {
     // Standard Problem
     {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
@@ -232,7 +232,7 @@ status_t make_generic(problem_t *prob) {
   return STATUS_OK;
 }
 
-status_t make_problem(problem_t *prob, piece_t *pieces, uint32_t pos1,
+status_t make_problem(problem_t *prob, const piece_t *pieces, uint32_t pos1,
                       uint32_t pos2) {
   if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
     return WRONG_INPUT;
@@ -257,7 +257,7 @@ status_t make_problem(problem_t *prob, piece_t *pieces, uint32_t pos1,
   return STATUS_OK;
 }
 
-status_t make_problem_nPcs(problem_t *prob, piece_t *pieces, size_t n_pcs,
+status_t make_problem_nPcs(problem_t *prob, const piece_t *pieces, size_t n_pcs,
                            uint32_t pos1, uint32_t pos2) {
   if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2 || n_pcs > MAX_PIECES) {
     return WRONG_INPUT;

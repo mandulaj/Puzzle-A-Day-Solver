@@ -244,7 +244,7 @@ void print_partial_solution(const piece_location_t *pieces, size_t n_p,
   printf("\n");
 }
 
-void print_problem(problem_t *prob) {
+void print_problem(const problem_t *prob) {
   printf("Problem with %ld pieces\n", prob->n_pieces);
   print_piece_board(0x00, prob, 0);
   for (int i = 0; i < prob->n_pieces; i++) {
