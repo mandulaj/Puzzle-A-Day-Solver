@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    piece_t pieces[11] = {0};
+    piece_t pieces[MAX_PIECES] = {0};
     ssize_t n_pieces;
     n_pieces = parse_standard_pieces(file, pieces);
     fclose(file);
