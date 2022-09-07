@@ -39,7 +39,7 @@ int cmpfunc(const void *a, const void *b, void *args) {
 
 status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
                                struct solution_restrictions restrictions,
-                               piece_location_t *placed_pieces,
+                               const piece_location_t *placed_pieces,
                                size_t n_placed_pieces) {
   status_t ret;
   if (n_placed_pieces >= problem->n_pieces) {
@@ -244,7 +244,8 @@ __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
   return STATUS_OK;
 }
 
-static status_t solve_rec_simd_old(solutions_t *sol, board_t problem) {
+__attribute__((unused)) static status_t solve_rec_simd_old(solutions_t *sol,
+                                                           board_t problem) {
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
 
