@@ -4,6 +4,7 @@ build
 main
 pad
 statistics
+checker
 .vscode
 *.csv
 *.txt

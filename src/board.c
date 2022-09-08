@@ -3,6 +3,26 @@
 #include <immintrin.h>
 #include <stdio.h>
 
+void get_date(board_t b, size_t *w_month, size_t *w_day) {
+  b = ~b;
+
+  *w_month = 1000;
+  *w_day = 1000;
+
+  for (int month = 0; month < 12; month++) {
+    if ((b >> (month_location(month) - 1)) & 0x01) {
+      *w_month = month;
+      break;
+    }
+  }
+  for (int day = 0; day < 31; day++) {
+    if ((b >> (day_location(day) - 1)) & 0x01) {
+      *w_day = day;
+      break;
+    }
+  }
+}
+
 void print_raw(uint64_t pattern) {
 
   for (int i = 0; i < 8; i++) {

@@ -17,6 +17,7 @@ struct solution_restrictions {
 typedef struct solution_t {
   piece_t pieces[MAX_PIECES];
 } solution_t;
+
 typedef struct solver_t {
   // Problem (with the target invalidated)
   board_t problem;
@@ -42,7 +43,12 @@ typedef struct solver_t {
   size_t face_down_solutions;
   solution_t *solutions;
 
+  uint32_t date_solutions[12][31];
+
 } solver_t;
+
+status_t init_all_dates_solution(solver_t *sol, const problem_t *problem,
+                                 struct solution_restrictions restrictions);
 
 status_t init_solutions(solver_t *sol, const problem_t *problem,
                         struct solution_restrictions restrictions);
@@ -56,6 +62,7 @@ status_t destroy_solutions(solver_t *sol);
 
 status_t push_solution(solver_t *sol);
 
+status_t enumerate_solutions(solver_t *sol);
 status_t solve_parallel(solver_t *sol);
 status_t solve(solver_t *sol);
 
