@@ -23,7 +23,7 @@ SRC_DIR=src
 
 
 .PHONY: all
-all: pad statistics
+all: pad statistics checker
 
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
@@ -33,6 +33,10 @@ pad: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR
 	$(CC) $(CFLAGS) -o $@ $^
 
 statistics: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR)/problem.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/printing.o $(BUILD_DIR)/statistics.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+
+checker: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR)/problem.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/printing.o $(BUILD_DIR)/checker.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 

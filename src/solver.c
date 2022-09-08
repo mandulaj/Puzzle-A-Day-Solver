@@ -75,6 +75,12 @@ int cmpfunc(const void *a, const void *b, void *args) {
 
 #endif
 
+status_t init_all_dates_solution(solver_t *sol, const problem_t *problem,
+                                 struct solution_restrictions restrictions) {
+  init_partial_solution(sol, problem, restrictions, NULL, 0);
+  memset(sol->date_solutions, 0x00, sizeof(sol->date_solutions));
+}
+
 status_t init_partial_solution(solver_t *sol, const problem_t *problem,
                                struct solution_restrictions restrictions,
                                const piece_location_t *placed_pieces,
@@ -237,6 +243,24 @@ status_t push_solution(solver_t *sol) {
     sol->solutions[sol->num_solutions].pieces[i] = sol->solution_stack[i];
   }
   // printf("Found solution %ld!\n", sol->num_solutions);
+  return STATUS_OK;
+}
+status_t add_date_solution(solver_t *sol, board_t b) {
+  // Expand solutions buffer if needed
+  // printf("Found solution %ld\n", sol->num_solutions);
+  size_t day;
+  size_t month;
+  get_date(b, &month, &day);
+
+  if (month == 1000 || day == 1000) {
+    // invalid date
+  } else {
+    printf("%ld, %ld\n", month, day);
+    print_raw_color(b, 0);
+    sol->date_solutions[month][day]++;
+  }
+  // printf("%d/%d\n", month, day);
+
   return STATUS_OK;
 }
 
@@ -417,14 +441,183 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   return STATUS_OK;
 }
 
+static status_t enum_rec_simd(solver_t *sol, board_t problem,
+                              size_t current_level) {
+
+  const size_t current_index = sol->sorted_pieces_idxs[current_level];
+  status_t ret;
+
+  piece_t *p_patterns = sol->piece_positions[current_index];
+  piece_t *p_partials = sol->placed_viable_pieces[current_index];
+  // piece_t *p_partials_idx = sol->sol_partials_idxs[current_index];
+
+  size_t matches = 0;
+
+#if defined(SIMD_AVX2)
+
+  __m256i vec_problem = _mm256_set1_epi64x(problem);
+  __m256i vec_zero = _mm256_set1_epi64x(0);
+  __m256i vec_idx = _mm256_set_epi64x(3, 2, 1, 0);
+  __m256i vec_fours = _mm256_set1_epi64x(4);
+
+  for (size_t i = 0; i < sol->num_piece_positions[current_index]; i += 4) {
+
+    __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
+
+    __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
+
+    // Set to 0xFFFF.. if any is zero
+    __m256i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
+
+    // printf("%d  ", i);
+    // for (int b = 3; b >= 0; b--) {
+    //   printf("%d ", 0x01 & (mask >> b));
+    // }
+    // printf(" PopCnt: %d\n", __popcntd(mask));
+
+    // print_piece(p_patterns[0] | problem, i % 10);
+
+    int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
+    if (mask) {
+
+      int num_matches = __popcntd(mask);
+      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
+      // 1 1 0 1
+
+      // 11 10 01 00
+
+      // 11 11 10 00
+
+      uint64_t expanded_mask =
+          _pdep_u64(mask, 0x001000100010001); // unpack each bit to a byte
+      expanded_mask *= 0xFFFF;
+
+      // for (int b = 63; b >= 0; b--) {
+      //   printf("%d", 0x01 & (expanded_mask >> b));
+      // }
+      // printf("\n");
+
+      const uint64_t identity_indices =
+          0x0706050403020100; // the identity shuffle for vpermps, packed to one
+                              // index per byte
+      uint64_t wanted_indices = _pext_u64(identity_indices, expanded_mask);
+
+      // for (int b = 63; b >= 0; b--) {
+      //   printf("%d", 0x01 & (wanted_indices >> b));
+      // }
+      // printf("\n");
+
+      __m128i bytevec = _mm_cvtsi64_si128(wanted_indices);
+      __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
+
+      __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
+      __m256i filt_idxs = _mm256_permutevar8x32_epi32(vec_idx, shufmask);
+
+      _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
+      // _mm256_storeu_si256((__m256i *)p_partials_idx, filt_idxs);
+
+      p_partials += num_matches;
+      // p_partials_idx += num_matches;
+      matches += num_matches;
+    }
+
+    p_patterns += 4;
+    vec_idx = _mm256_add_epi64(vec_idx, vec_fours);
+  }
+
+#elif defined(SIMD_AVX512)
+
+  __m512i vec_problem = _mm512_set1_epi64(problem);
+  __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
+  __m512i vec_idx = _mm512_set_epi64(7, 6, 5, 4, 3, 2, 1, 0);
+  __m512i vec_eights = _mm512_set1_epi64(8);
+
+  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 8) {
+
+    __m512i vec_patterns = _mm512_stream_load_si512((__m256i *)p_patterns);
+
+    __m512i vec_pp_and = _mm512_and_si512(vec_problem, vec_patterns);
+
+    // Set to 0xFFFF.. if any is zero
+    // __m512i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
+
+    __mmask8 mask = _mm512_cmpeq_epi64_mask(vec_pp_and, vec_zero);
+
+    // printf("%d  ", i);
+    // for (int b = 3; b >= 0; b--) {
+    //   printf("%d ", 0x01 & (mask >> b));
+    // }
+    // printf(" PopCnt: %d\n", __popcntd(mask));
+
+    // print_piece(p_patterns[0] | problem, i % 10);
+
+    // int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
+    if (mask) {
+
+      int num_matches = __popcntd(mask);
+      __m512i vec_pp_or = _mm512_or_si512(vec_problem, vec_patterns);
+
+      _mm512_mask_compressstoreu_epi64(p_partials, mask, vec_pp_or);
+      _mm512_mask_compressstoreu_epi64(p_partials_idx, mask, vec_idx);
+
+      p_partials += num_matches;
+      p_partials_idx += num_matches;
+      matches += num_matches;
+    }
+
+    p_patterns += 8;
+    vec_idx = _mm512_add_epi64(vec_idx, vec_eights);
+  }
+
+#else
+#error "Cant Use SIMD without AVX support"
+#endif
+
+  p_partials = sol->placed_viable_pieces[current_index];
+  // p_partials_idx = sol->sol_partials_idxs[current_index];
+
+  for (int i = 0; i < matches; i++) {
+    // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
+    // print_piece(p_partials[i], current_level);
+
+    // sol->sol_pattern_index[current_index] = p_partials_idx[i];
+
+    if (current_level < sol->n_pieces - 1) {
+      // printf("Checking Holes\n");
+      ret = enum_rec_simd(sol, p_partials[i], current_level + 1);
+      // printf("Holes passed, recursing\n");
+      // printf("Done recursing %d\n", ret);
+
+      if (ret) {
+        if (ret == WARNING) {
+          break;
+        }
+        printf("Catching error\n");
+        return ret;
+      }
+
+    } else {
+      // printf("Found Solution\n");
+      ret = add_date_solution(sol, p_partials[i]);
+      if (ret) {
+        if (ret == WARNING)
+          break;
+        return ret;
+      }
+    }
+  }
+
+  return STATUS_OK;
+}
+
+status_t enumerate_solutions(solver_t *sol) {
+  return enum_rec_simd(sol, sol->problem, sol->num_placed);
+}
+
 status_t solve(solver_t *sol) {
   status_t res;
 
-#ifdef USE_OLD_SIMD
-  res = solve_rec_simd_old(sol, sol->problem);
-#else
   res = solve_rec(sol, sol->problem, sol->num_placed);
-#endif
 
   return res;
 }
