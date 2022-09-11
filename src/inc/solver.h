@@ -22,12 +22,12 @@ typedef struct solutions_t {
   size_t n_pieces;
 
   // Array current stack of solutions pattern
-  size_t sol_pattern_index[MAX_PIECES];
+  piece_t solution_stack[MAX_PIECES];
 
-  size_t sol_patterns_num[MAX_PIECES];   // Total number of subsolutions
-  piece_t *sol_patterns[MAX_PIECES];     // Viable solution patterns
-  piece_t *sol_partials[MAX_PIECES];     // Viable solution patterns
-  size_t *sol_partials_idxs[MAX_PIECES]; // Viable solution patterns
+  size_t sol_patterns_num[MAX_PIECES];    // Total number of subsolutions
+  piece_t *sol_patterns[MAX_PIECES];      // Viable solution patterns
+  piece_t *sol_partials[MAX_PIECES];      // Viable solution patterns
+  piece_t *candidate_pattern[MAX_PIECES]; // Viable solution patterns
 
   size_t sorted_sol_indexes[MAX_PIECES]; // Sorted solution indexes
 

@@ -67,7 +67,6 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
   for (int i = 0; i < problem->n_pieces; i++) {
     bool placed_piece = false;
     sol->sol_patterns_num[i] = 0;
-    sol->sol_pattern_index[i] = 0;
 
     // Check if the piece is already placed
     for (int j = 0; j < n_placed_pieces; j++) {
@@ -80,8 +79,8 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
         }
 
         // Allocate both piece buffers at the same time
-        piece_t *buffers = aligned_alloc(
-            CACHE_LINE_SIZE, (4 * sizeof(piece_t) * 2) + (4 * sizeof(size_t)));
+        piece_t *buffers =
+            aligned_alloc(CACHE_LINE_SIZE, (4 * sizeof(piece_t) * 3));
 
         if (buffers == NULL) {
           return MEMORY_ERROR;
@@ -90,7 +89,7 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
         // Assign the two buffer halfs
         sol->sol_patterns[i] = buffers;
         sol->sol_partials[i] = buffers + 4;
-        sol->sol_partials_idxs[i] = (size_t *)(buffers + 2 * 4);
+        sol->candidate_pattern[i] = buffers + 2 * 4;
 
         // Set up the 1 pattern
         memset(sol->sol_patterns[i], 0xAA, 4 * sizeof(piece_t));
@@ -107,8 +106,7 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
 
       // Allocate both piece buffers at the same time
       piece_t *buffers =
-          aligned_alloc(CACHE_LINE_SIZE, (nearest_mul8 * sizeof(piece_t) * 2) +
-                                             (nearest_mul8 * sizeof(size_t)));
+          aligned_alloc(CACHE_LINE_SIZE, (nearest_mul8 * sizeof(piece_t) * 3));
 
       if (buffers == NULL) {
         printf("Failed ot allocate viable_sub_solutions array.\n");
@@ -118,7 +116,7 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
       sol->sol_patterns[i] = buffers;
 
       sol->sol_partials[i] = buffers + nearest_mul8;
-      sol->sol_partials_idxs[i] = (size_t *)(buffers + 2 * nearest_mul8);
+      sol->candidate_pattern[i] = buffers + 2 * nearest_mul8;
 
       memset(sol->sol_patterns[i], 0xAA, nearest_mul8 * sizeof(piece_t));
 
@@ -187,8 +185,7 @@ status_t push_solution(solutions_t *sol) {
   }
 
   for (size_t i = 0; i < sol->n_pieces; i++) {
-    sol->solutions[sol->num_solutions].pieces[i] =
-        sol->sol_patterns[i][sol->sol_pattern_index[i]];
+    sol->solutions[sol->num_solutions].pieces[i] = sol->solution_stack[i];
   }
   sol->num_solutions++;
   // printf("Found solution %ld!\n", sol->num_solutions);
@@ -211,7 +208,7 @@ __attribute__((unused)) static status_t solve_rec(solutions_t *sol,
     board_t pp_or = p_patterns[i] | problem;
 
     if (!(pp_and)) {
-      sol->sol_pattern_index[current_index] = i;
+      sol->solution_stack[current_index] = p_patterns[i];
 
       // We placed the last peice so have a full board, push it
       if (pp_or == 0xFFFFFFFFFFFFFFFF) {
@@ -280,7 +277,7 @@ __attribute__((unused)) static status_t solve_rec_simd_old(solutions_t *sol,
       for (size_t j = 0; j < 4; j++) {
 
         if (pp_and_buffer[j] == 0) {
-          sol->sol_pattern_index[current_index] = i + j;
+          sol->solution_stack[current_index] = p_patterns[j];
 
           if (pp_or_buffer[j] == 0xFFFFFFFFFFFFFFFF) {
             ret = push_solution(sol);
@@ -327,7 +324,7 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
 
   piece_t *p_patterns = sol->sol_patterns[current_index];
   piece_t *p_partials = sol->sol_partials[current_index];
-  piece_t *p_partials_idx = sol->sol_partials_idxs[current_index];
+  piece_t *p_candidate_pattern = sol->candidate_pattern[current_index];
 
   size_t matches = 0;
 
@@ -389,13 +386,14 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
       __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
 
       __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
-      __m256i filt_idxs = _mm256_permutevar8x32_epi32(vec_idx, shufmask);
+      __m256i filt_candidate =
+          _mm256_permutevar8x32_epi32(vec_patterns, shufmask);
 
       _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
-      _mm256_storeu_si256((__m256i *)p_partials_idx, filt_idxs);
+      _mm256_storeu_si256((__m256i *)p_candidate_pattern, filt_candidate);
 
       p_partials += num_matches;
-      p_partials_idx += num_matches;
+      p_candidate_pattern += num_matches;
       matches += num_matches;
     }
 
@@ -452,13 +450,14 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
 #endif
 
   p_partials = sol->sol_partials[current_index];
-  p_partials_idx = sol->sol_partials_idxs[current_index];
+  p_candidate_pattern = sol->candidate_pattern[current_index];
 
   for (int i = 0; i < matches; i++) {
     // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
     // print_piece(p_partials[i], current_level);
 
-    sol->sol_pattern_index[current_index] = p_partials_idx[i];
+    sol->solution_stack[current_index] =
+        sol->candidate_pattern[current_index][i];
 
     if (p_partials[i] == 0xFFFFFFFFFFFFFFFF) {
       // printf("Found Solution\n");
@@ -537,12 +536,14 @@ status_t solve_parallel(solutions_t *sol) {
         calloc(sol_works[i].max_solutions, sizeof(solution_t));
 
     for (int j = 0; j < sol->n_pieces; j++) {
-      size_t nearest_mul4 =
-          ((sol_works[i].sol_patterns_num[j] + 4 - 1) / 4) * 4;
-      sol_works[i].sol_partials[j] =
-          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(piece_t));
-      sol_works[i].sol_partials_idxs[j] =
-          aligned_alloc(CACHE_LINE_SIZE, nearest_mul4 * sizeof(size_t));
+      size_t nearest_mul8 =
+          ((sol_works[i].sol_patterns_num[j] + 8 - 1) / 8) * 8;
+
+      piece_t *buffers =
+          aligned_alloc(CACHE_LINE_SIZE, 2 * nearest_mul8 * sizeof(piece_t));
+
+      sol_works[i].sol_partials[j] = buffers;
+      sol_works[i].candidate_pattern[j] = buffers + nearest_mul8;
     }
 
     if (sol_works[i].solutions == NULL) {
@@ -554,7 +555,8 @@ status_t solve_parallel(solutions_t *sol) {
 #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < n_patterns_first_level; i++) {
     if ((sol_works[i].sol_patterns[current_index][i] & problem) == 0) {
-      sol_works[i].sol_pattern_index[current_index] = i;
+      sol_works[i].solution_stack[current_index] =
+          sol_works[i].sol_patterns[current_index][i];
 
       sol_works[i].current_level++;
 
@@ -597,7 +599,6 @@ status_t solve_parallel(solutions_t *sol) {
 
     for (int j = 0; j < sol->n_pieces; j++) {
       free(sol_works[i].sol_partials[j]);
-      free(sol_works[i].sol_partials_idxs[j]);
     }
 
     free(sol_works[i].solutions);
