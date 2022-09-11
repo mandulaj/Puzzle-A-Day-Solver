@@ -77,8 +77,9 @@ int cmpfunc(const void *a, const void *b, void *args) {
 
 status_t init_all_dates_solution(solver_t *sol, const problem_t *problem,
                                  struct solution_restrictions restrictions) {
-  init_partial_solution(sol, problem, restrictions, NULL, 0);
+  status_t res = init_partial_solution(sol, problem, restrictions, NULL, 0);
   memset(sol->date_solutions, 0x00, sizeof(sol->date_solutions));
+  return res;
 }
 
 status_t init_partial_solution(solver_t *sol, const problem_t *problem,
@@ -245,19 +246,20 @@ status_t push_solution(solver_t *sol) {
   // printf("Found solution %ld!\n", sol->num_solutions);
   return STATUS_OK;
 }
+
 status_t add_date_solution(solver_t *sol, board_t b) {
   // Expand solutions buffer if needed
   // printf("Found solution %ld\n", sol->num_solutions);
-  size_t day;
-  size_t month;
-  get_date(b, &month, &day);
+  size_t pos1;
+  size_t pos2;
+  get_date(b, &pos1, &pos2);
 
-  if (month == 1000 || day == 1000) {
+  if (pos1 == 1000 || pos2 == 1000) {
     // invalid date
   } else {
-    printf("%ld, %ld\n", month, day);
-    print_raw_color(b, 0);
-    sol->date_solutions[month][day]++;
+    // printf("%ld, %ld\n", pos1, pos2);
+    // print_raw_color(b, 0);
+    sol->date_solutions[pos1][pos2]++;
   }
   // printf("%d/%d\n", month, day);
 
@@ -457,8 +459,6 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
 
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   __m256i vec_zero = _mm256_set1_epi64x(0);
-  __m256i vec_idx = _mm256_set_epi64x(3, 2, 1, 0);
-  __m256i vec_fours = _mm256_set1_epi64x(4);
 
   for (size_t i = 0; i < sol->num_piece_positions[current_index]; i += 4) {
 
@@ -498,8 +498,8 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
       // printf("\n");
 
       const uint64_t identity_indices =
-          0x0706050403020100; // the identity shuffle for vpermps, packed to one
-                              // index per byte
+          0x0706050403020100; // the identity shuffle for vpermps, packed to
+                              // one index per byte
       uint64_t wanted_indices = _pext_u64(identity_indices, expanded_mask);
 
       // for (int b = 63; b >= 0; b--) {
@@ -511,18 +511,13 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
       __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
 
       __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
-      __m256i filt_idxs = _mm256_permutevar8x32_epi32(vec_idx, shufmask);
 
       _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
-      // _mm256_storeu_si256((__m256i *)p_partials_idx, filt_idxs);
-
       p_partials += num_matches;
-      // p_partials_idx += num_matches;
       matches += num_matches;
     }
 
     p_patterns += 4;
-    vec_idx = _mm256_add_epi64(vec_idx, vec_fours);
   }
 
 #elif defined(SIMD_AVX512)
@@ -612,6 +607,66 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
 
 status_t enumerate_solutions(solver_t *sol) {
   return enum_rec_simd(sol, sol->problem, sol->num_placed);
+}
+
+status_t enumerate_solutions_parallel(solver_t *sol) {
+  status_t res = STATUS_OK;
+
+  const size_t current_level = sol->num_placed;
+  const size_t current_index = sol->sorted_pieces_idxs[current_level];
+  const size_t n_patterns_first_level = sol->num_piece_positions[current_index];
+  board_t problem = sol->problem;
+
+  solver_t *sol_works = calloc(sizeof(solver_t), n_patterns_first_level);
+
+  for (size_t i = 0; i < n_patterns_first_level; i++) {
+    // Copy base
+    memcpy(&sol_works[i], sol, sizeof(solver_t));
+
+    for (int j = 0; j < sol->n_pieces; j++) {
+      size_t nearest_mul8 =
+          ((sol_works[i].num_piece_positions[j] + 8 - 1) / 8) * 8;
+
+      piece_t *buffers =
+          aligned_alloc(CACHE_LINE_SIZE, 2 * nearest_mul8 * sizeof(piece_t));
+
+      if (buffers == NULL) {
+        printf("Failed to allocate solutions array.\n");
+        return MEMORY_ERROR;
+      }
+      sol_works[i].viable_pieces[j] = buffers;
+      sol_works[i].placed_viable_pieces[j] = buffers + nearest_mul8;
+    }
+
+    sol_works[i].piece_positions[current_index][i] & problem;
+  }
+
+#pragma omp parallel for schedule(dynamic)
+  for (size_t i = 0; i < n_patterns_first_level; i++) {
+    enum_rec_simd(&sol_works[i],
+                  problem | sol_works[i].piece_positions[current_index][i],
+                  current_level + 1);
+  }
+
+  for (size_t i = 0; i < n_patterns_first_level; i++) {
+
+    // Increase buffer if required
+    sol->num_solutions += sol_works[i].num_solutions;
+
+    for (int pos1 = 0; pos1 < 64; pos1++)
+      for (int pos2 = 0; pos2 < 64; pos2++) {
+
+        sol->date_solutions[pos1][pos2] +=
+            sol_works[i].date_solutions[pos1][pos2];
+      }
+
+    for (int j = 0; j < sol->n_pieces; j++) {
+      free(sol_works[i].piece_positions[j]);
+    }
+  }
+  free(sol_works);
+
+  return res;
 }
 
 status_t solve(solver_t *sol) {

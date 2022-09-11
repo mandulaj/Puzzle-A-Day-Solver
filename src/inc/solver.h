@@ -43,7 +43,7 @@ typedef struct solver_t {
   size_t face_down_solutions;
   solution_t *solutions;
 
-  uint32_t date_solutions[12][31];
+  uint32_t date_solutions[64][64];
 
 } solver_t;
 

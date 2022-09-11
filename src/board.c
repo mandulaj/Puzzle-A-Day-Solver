@@ -1,26 +1,43 @@
 #include "board.h"
 #include "printing.h"
 #include <immintrin.h>
+#include <x86intrin.h>
+
 #include <stdio.h>
 
-void get_date(board_t b, size_t *w_month, size_t *w_day) {
+void printBin(uint64_t b) {
+  for (int i = 63; i >= 0; i--) {
+    printf("%2d ", i);
+  }
+  printf("\n");
+  for (int i = 63; i >= 0; i--) {
+    printf("%2d ", (b >> i) & 0x01);
+  }
+  printf("\n");
+}
+
+void get_date(board_t b, size_t *position_1, size_t *position_2) {
   b = ~b;
+  // printBin(b);
+  // printf("%lx, popcont: %lld\n", b, __popcntq(b));
+  *position_1 = 1000;
+  *position_2 = 1000;
 
-  *w_month = 1000;
-  *w_day = 1000;
+  if (__popcntq(b) != 2) {
+    return;
+  }
 
-  for (int month = 0; month < 12; month++) {
-    if ((b >> (month_location(month) - 1)) & 0x01) {
-      *w_month = month;
-      break;
-    }
-  }
-  for (int day = 0; day < 31; day++) {
-    if ((b >> (day_location(day) - 1)) & 0x01) {
-      *w_day = day;
-      break;
-    }
-  }
+  uint64_t pos1 = __builtin_ctzl(b);
+
+  b ^= (uint64_t)0x1 << pos1;
+  // printBin((uint64_t)0x1 << pos1);
+
+  // printBin(b);
+  uint64_t pos2 = __builtin_ctzl(b);
+
+  // printf("POsitions: %d, %d\n", pos1, pos2);
+  *position_1 = pos1; // The bits are reversed
+  *position_2 = pos2;
 }
 
 void print_raw(uint64_t pattern) {

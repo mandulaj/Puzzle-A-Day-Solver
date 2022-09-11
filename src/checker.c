@@ -25,18 +25,27 @@ int main() {
 
   solver_t sol;
   problem_t problem;
-  make_from_date(&problem, 1, 1);
+  make_from_date(&problem, 2, 2);
 
   init_all_dates_solution(&sol, &problem, restrictions);
+
+  for (int i = 0; i < problem.n_pieces; i++) {
+    print_raw(problem.pieces[i]);
+  }
 
   enumerate_solutions(&sol);
 
   uint64_t total = 0;
-  for (int month = 0; month < 12; month++) {
-    for (int day = 0; day < 31; day++) {
-      printf("%d/%d - %d solutions\n", day + 1, month + 1,
-             sol.date_solutions[month][day]);
-      total += sol.date_solutions[month][day];
+  for (int month = 1; month <= 12; month++) {
+    for (int day = 1; day <= 31; day++) {
+      size_t pos1 = day_location(day);
+      size_t pos2 = month_location(month);
+
+      uint32_t total_solutions =
+          sol.date_solutions[pos1][pos2] + sol.date_solutions[pos2][pos1];
+
+      printf("%d/%d - %d solutions\n", month, day, total_solutions);
+      total += total_solutions;
     }
   }
   printf("Total: %ld\n", total);
