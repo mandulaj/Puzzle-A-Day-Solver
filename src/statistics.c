@@ -33,9 +33,9 @@ int main() {
 #endif
 
         problem_t problem;
-        solutions_t sol1;
-        solutions_t sol2;
-        solutions_t sol3;
+        solver_t sol1;
+        solver_t sol2;
+        solver_t sol3;
 
 #ifdef INCLUDE_WEEKDAYS
         make_from_date_weekday(&problem, day, month, wd);
@@ -94,9 +94,9 @@ int main() {
       for (int idx3 = idx2 + 1; idx3 < 50; idx3++) {
 
         problem_t problem;
-        solutions_t sol1;
-        solutions_t sol2;
-        solutions_t sol3;
+        solver_t sol1;
+        solver_t sol2;
+        solver_t sol3;
 
         make_problem_weekday(&problem, index_location(idx1),
                              index_location(idx2), index_location(idx3));
@@ -134,9 +134,9 @@ int main() {
 
       problem_t problem;
       make_problem_standard(&problem, index_location(i1), index_location(i2));
-      solutions_t sol1;
-      solutions_t sol2;
-      solutions_t sol3;
+      solver_t sol1;
+      solver_t sol2;
+      solver_t sol3;
 
       init_solutions(&sol1, &problem, restrictions);
       init_solutions(&sol2, &problem, restrictions_faceup);

@@ -20,7 +20,7 @@ typedef struct piece_location_t {
 } piece_location_t;
 
 typedef struct piece_properties_t {
-  uint64_t rotations;
+  uint8_t rotations;
   bool asymetric;
 } piece_properties_t;
 

@@ -20,13 +20,6 @@
  */
 typedef uint64_t board_t;
 
-/**
- * Structure representing a solution with an array of the solution pieces
- */
-typedef struct solution_t {
-  piece_t pieces[MAX_PIECES];
-} solution_t;
-
 struct hole_checker {
   board_t *double_hole_masks;
   board_t *double_hole_crosses;

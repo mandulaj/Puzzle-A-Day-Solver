@@ -35,9 +35,44 @@ int cmpfunc(const void *a, const void *b, void *args) {
 
   return ret;
 }
+
+// static void reshuffle(size_t *indexes, size_t n) {
+
+//   size_t tmp[MAX_PIECES];
+//   memcpy(tmp, indexes, n * sizeof(size_t));
+
+//   if (n % 2 == 0) {
+//     //[ 0 1 2 3 4 5 6 7 ]
+//     //[ 6 4 2 0 1 3 5 7 ]
+//     int indx = 0;
+//     for (int i = (n / 2) - 1; i >= 0; i--) {
+//       indexes[i] = tmp[indx];
+//       indx += 2;
+//     }
+//     indx = 1;
+//     for (int i = (n / 2); i < n; i++) {
+//       indexes[i] = tmp[indx];
+//       indx += 2;
+//     }
+//   } else {
+//     //[ 0 1 2 3 4 5 6 7 8 ]
+//     //[ 7 5 3 1 0 2 4 6 8]
+//     int indx = 0;
+//     for (int i = (n / 2); i < n; i++) {
+//       indexes[i] = tmp[indx];
+//       indx += 2;
+//     }
+//     indx = 1;
+//     for (int i = (n / 2) - 1; i >= 0; i--) {
+//       indexes[i] = tmp[indx];
+//       indx += 2;
+//     }
+//   }
+// }
+
 #endif
 
-status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
+status_t init_partial_solution(solver_t *sol, const problem_t *problem,
                                struct solution_restrictions restrictions,
                                const piece_location_t *placed_pieces,
                                size_t n_placed_pieces) {
@@ -60,13 +95,13 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
 
   sol->problem = problem->problem;
   sol->num_solutions = 0;
-  sol->current_level = 0;
+  sol->num_placed = 0;
   sol->n_pieces = problem->n_pieces; // Number of pieces left
 
   // Go through all pieces
   for (int i = 0; i < problem->n_pieces; i++) {
     bool placed_piece = false;
-    sol->sol_patterns_num[i] = 0;
+    sol->num_piece_positions[i] = 0;
 
     // Check if the piece is already placed
     for (int j = 0; j < n_placed_pieces; j++) {
@@ -87,16 +122,17 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
         }
 
         // Assign the two buffer halfs
-        sol->sol_patterns[i] = buffers;
-        sol->sol_partials[i] = buffers + 4;
-        sol->candidate_pattern[i] = buffers + 2 * 4;
+        sol->piece_positions[i] = buffers;
+        sol->viable_pieces[i] = buffers + 4;
+        sol->placed_viable_pieces[i] = buffers + 2 * 4;
 
         // Set up the 1 pattern
-        memset(sol->sol_patterns[i], 0xAA, 4 * sizeof(piece_t));
-        sol->sol_patterns[i][0] = p;
-        sol->sol_patterns_num[i] = 1;
+        memset(sol->piece_positions[i], 0xAA, 4 * sizeof(piece_t));
+        sol->piece_positions[i][0] = p;
+        sol->num_piece_positions[i] = 1;
 
         placed_piece = true;
+        sol->num_placed++;
         break;
       }
     }
@@ -113,27 +149,35 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
         return MEMORY_ERROR;
       }
 
-      sol->sol_patterns[i] = buffers;
+      sol->piece_positions[i] = buffers;
 
-      sol->sol_partials[i] = buffers + nearest_mul8;
-      sol->candidate_pattern[i] = buffers + 2 * nearest_mul8;
+      sol->viable_pieces[i] = buffers + nearest_mul8;
+      sol->placed_viable_pieces[i] = buffers + 2 * nearest_mul8;
 
-      memset(sol->sol_patterns[i], 0xAA, nearest_mul8 * sizeof(piece_t));
+      memset(sol->piece_positions[i], 0xAA, nearest_mul8 * sizeof(piece_t));
 
       // Optimized sol_patterns positions (eliminating invalid positions)
-      sol->sol_patterns_num[i] =
-          make_positions(problem->pieces[i], problem->piece_props[i],
-                         partial_solution, sol->sol_patterns[i], restrictions);
+      sol->num_piece_positions[i] = make_positions(
+          problem->pieces[i], problem->piece_props[i], partial_solution,
+          sol->piece_positions[i], restrictions);
     }
   }
 
   // Sort by least number of indexes
   for (size_t i = 0; i < problem->n_pieces; i++) {
-    sol->sorted_sol_indexes[i] = i;
+    sol->sorted_pieces_idxs[i] = i;
   }
 #ifdef SORT_PATTERNS
-  qsort_r(sol->sorted_sol_indexes, problem->n_pieces,
-          sizeof(sol->sorted_sol_indexes[0]), cmpfunc, sol->sol_patterns_num);
+  qsort_r(sol->sorted_pieces_idxs, problem->n_pieces,
+          sizeof(sol->sorted_pieces_idxs[0]), cmpfunc,
+          sol->num_piece_positions);
+
+  // reshuffle(sol->sorted_sol_indexes, problem->n_pieces);
+  // for (int i = 0; i < problem->n_pieces; i++) {
+  //   printf("%d, %ld\n", i,
+  //   sol->sol_patterns_num[sol->sorted_sol_indexes[i]]);
+  // }
+
 #endif
 
   sol->max_solutions = SOLUTIONS_BUFFER_SIZE;
@@ -145,28 +189,22 @@ status_t init_partial_solution(solutions_t *sol, const problem_t *problem,
   return STATUS_OK;
 }
 
-status_t init_solutions(solutions_t *sol, const problem_t *problem,
+status_t init_solutions(solver_t *sol, const problem_t *problem,
                         struct solution_restrictions restrictions) {
   // Initialize problem formulation
 
-  // printf("Popcount: %d\n",
-  //  __builtin_popcountl(problem->problem ^ problem->blank));
-  // print_raw(problem->problem ^ problem->blank);
-
-  piece_location_t placed_pieces;
-
-  return init_partial_solution(sol, problem, restrictions, &placed_pieces, 0);
+  return init_partial_solution(sol, problem, restrictions, NULL, 0);
 }
 
-status_t destroy_solutions(solutions_t *sol) {
+status_t destroy_solutions(solver_t *sol) {
   for (int i = 0; i < sol->n_pieces; i++) {
-    free(sol->sol_patterns[i]); // Release all buffers
+    free(sol->piece_positions[i]); // Release all buffers
   }
   free(sol->solutions);
   return STATUS_OK;
 }
 
-status_t push_solution(solutions_t *sol) {
+status_t push_solution(solver_t *sol) {
   // Expand solutions buffer if needed
   // printf("Found solution %ld\n", sol->num_solutions);
   if (sol->num_solutions + 1 >= sol->max_solutions) {
@@ -192,56 +230,8 @@ status_t push_solution(solutions_t *sol) {
   return STATUS_OK;
 }
 
-__attribute__((unused)) static status_t solve_rec(solutions_t *sol,
-                                                  board_t problem) {
-  const size_t current_level = sol->current_level;
-  const size_t current_index = sol->sorted_sol_indexes[current_level];
-
-  const size_t num_patterns = sol->sol_patterns_num[current_index];
-
-  piece_t *p_patterns = sol->sol_patterns[current_index];
-
-  status_t ret;
-
-  for (size_t i = 0; i < num_patterns; i++) {
-    board_t pp_and = p_patterns[i] & problem;
-    board_t pp_or = p_patterns[i] | problem;
-
-    if (!(pp_and)) {
-      sol->solution_stack[current_index] = p_patterns[i];
-
-      // We placed the last peice so have a full board, push it
-      if (pp_or == 0xFFFFFFFFFFFFFFFF) {
-        ret = push_solution(sol);
-        if (ret) {
-          if (ret == WARNING)
-            break;
-          return ret;
-        }
-        // We are at the end, we will not fit anywhere else
-        sol->current_level--;
-        return STATUS_OK;
-      } else {
-        // Place next piece
-        sol->current_level++;
-        ret = solve_rec(sol, pp_or);
-        if (ret) {
-          if (ret == WARNING) {
-            break;
-          }
-          printf("Catching error\n");
-          return ret;
-        }
-      }
-    }
-  }
-
-  if (current_level > 0)
-    sol->current_level--;
-  return STATUS_OK;
-}
-
-__attribute__((unused)) static status_t solve_rec_simd_old(solutions_t *sol,
+/*
+__attribute__((unused)) static status_t solve_rec_simd_old(solver_t *sol,
                                                            board_t problem) {
   const size_t current_level = sol->current_level;
   const size_t current_index = sol->sorted_sol_indexes[current_level];
@@ -258,7 +248,7 @@ __attribute__((unused)) static status_t solve_rec_simd_old(solutions_t *sol,
 
   for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
 
-    __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
+    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
 
@@ -315,16 +305,20 @@ __attribute__((unused)) static status_t solve_rec_simd_old(solutions_t *sol,
 
   return STATUS_OK;
 }
+*/
+static status_t solve_rec(solver_t *sol, board_t problem,
+                          size_t current_level) {
 
-static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
-
-  const size_t current_level = sol->current_level;
-  const size_t current_index = sol->sorted_sol_indexes[current_level];
+  const size_t current_index = sol->sorted_pieces_idxs[current_level];
   status_t ret;
 
-  piece_t *p_patterns = sol->sol_patterns[current_index];
-  piece_t *p_partials = sol->sol_partials[current_index];
-  piece_t *p_candidate_pattern = sol->candidate_pattern[current_index];
+  const piece_t *p_patterns = sol->piece_positions[current_index];
+  __builtin_prefetch(p_patterns);
+
+  piece_t *p_viable = sol->viable_pieces[current_index];
+  piece_t *p_placed_viable = sol->placed_viable_pieces[current_index];
+
+  const size_t num_positions = sol->num_piece_positions[current_index];
 
   size_t matches = 0;
 
@@ -332,12 +326,11 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
 
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   __m256i vec_zero = _mm256_set1_epi64x(0);
-  __m256i vec_idx = _mm256_set_epi64x(3, 2, 1, 0);
-  __m256i vec_fours = _mm256_set1_epi64x(4);
 
-  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
+  for (size_t i = 0; i < num_positions; i += 4) {
 
-    __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
+    __builtin_prefetch(p_patterns + 4);
+    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
 
@@ -385,30 +378,27 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
       __m128i bytevec = _mm_cvtsi64_si128(wanted_indices);
       __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
 
-      __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
-      __m256i filt_candidate =
-          _mm256_permutevar8x32_epi32(vec_patterns, shufmask);
+      __m256i filt_viable = _mm256_permutevar8x32_epi32(vec_patterns, shufmask);
+      __m256i filt_placed_viable =
+          _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
 
-      _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
-      _mm256_storeu_si256((__m256i *)p_candidate_pattern, filt_candidate);
+      _mm256_storeu_si256((__m256i *)p_viable, filt_viable);
+      _mm256_storeu_si256((__m256i *)p_placed_viable, filt_placed_viable);
 
-      p_partials += num_matches;
-      p_candidate_pattern += num_matches;
+      p_viable += num_matches;
+      p_placed_viable += num_matches;
       matches += num_matches;
     }
 
     p_patterns += 4;
-    vec_idx = _mm256_add_epi64(vec_idx, vec_fours);
   }
 
 #elif defined(SIMD_AVX512)
 
   __m512i vec_problem = _mm512_set1_epi64(problem);
   __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
-  __m512i vec_idx = _mm512_set_epi64(7, 6, 5, 4, 3, 2, 1, 0);
-  __m512i vec_eights = _mm512_set1_epi64(8);
 
-  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 8) {
+  for (size_t i = 0; i < num_positions; i += 8) {
 
     __m512i vec_patterns = _mm512_stream_load_si512((__m256i *)p_patterns);
 
@@ -433,51 +423,42 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
       int num_matches = __popcntd(mask);
       __m512i vec_pp_or = _mm512_or_si512(vec_problem, vec_patterns);
 
-      _mm512_mask_compressstoreu_epi64(p_partials, mask, vec_pp_or);
-      _mm512_mask_compressstoreu_epi64(p_partials_idx, mask, vec_idx);
+      _mm512_mask_compressstoreu_epi64(p_viable, mask, vec_patterns);
+      _mm512_mask_compressstoreu_epi64(p_placed_viable, mask, vec_pp_or);
 
-      p_partials += num_matches;
-      p_partials_idx += num_matches;
+      p_viable += num_matches;
+      p_placed_viable += num_matches;
       matches += num_matches;
     }
 
     p_patterns += 8;
-    vec_idx = _mm512_add_epi64(vec_idx, vec_eights);
   }
 
 #else
-#error "Cant Use SIMD without AVX support"
+  for (size_t i = 0; i < num_positions; i++) {
+    board_t pp_and = p_patterns[i] & problem;
+    board_t pp_or = p_patterns[i] | problem;
+
+    if (!pp_and) {
+      *p_placed_viable++ = pp_or;
+      *p_viable++ = p_patterns[i];
+    }
+  }
+
 #endif
 
-  p_partials = sol->sol_partials[current_index];
-  p_candidate_pattern = sol->candidate_pattern[current_index];
+  p_viable = sol->viable_pieces[current_index];
+  p_placed_viable = sol->placed_viable_pieces[current_index];
 
   for (int i = 0; i < matches; i++) {
     // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
     // print_piece(p_partials[i], current_level);
 
-    sol->solution_stack[current_index] =
-        sol->candidate_pattern[current_index][i];
+    sol->solution_stack[current_index] = p_viable[i];
 
-    if (p_partials[i] == 0xFFFFFFFFFFFFFFFF) {
-      // printf("Found Solution\n");
-      ret = push_solution(sol);
-      if (ret) {
-        if (ret == WARNING)
-          break;
-        return ret;
-      }
-
-      sol->current_level--;
-      return STATUS_OK; // We are at the end, we will not fit anywhere
-                        // else
-    } else {
-      // printf("Checking Holes\n");
-      if (check_holes(p_partials[i])) {
-        // printf("Holes passed, recursing\n");
-        sol->current_level++;
-        ret = solve_rec_simd(sol, p_partials[i]);
-        // printf("Done recursing %d\n", ret);
+    if (current_level + 1 < sol->n_pieces) {
+      if (check_holes(p_placed_viable[i])) {
+        ret = solve_rec(sol, p_placed_viable[i], current_level + 1);
 
         if (ret) {
           if (ret == WARNING) {
@@ -487,49 +468,50 @@ static status_t solve_rec_simd(solutions_t *sol, board_t problem) {
           return ret;
         }
       }
+    } else {
+      ret = push_solution(sol);
+      if (ret) {
+        if (ret == WARNING)
+          break;
+        return ret;
+      }
+
+      return STATUS_OK; // We are at the end, we will not fit anywhere
+                        // else
     }
   }
-
-  if (current_level > 0)
-    sol->current_level--;
 
   return STATUS_OK;
 }
 
-status_t solve(solutions_t *sol) {
-  status_t res = STATUS_OK;
-
-#ifdef USE_SIMD
+status_t solve(solver_t *sol) {
+  status_t res;
 
 #ifdef USE_OLD_SIMD
   res = solve_rec_simd_old(sol, sol->problem);
-
 #else
-  res = solve_rec_simd(sol, sol->problem);
+  res = solve_rec(sol, sol->problem, sol->num_placed);
 #endif
 
-#else
-  res = solve_rec(sol, sol->problem);
-#endif
   return res;
 }
 
-status_t solve_parallel(solutions_t *sol) {
+status_t solve_parallel(solver_t *sol) {
   status_t res = STATUS_OK;
 
-  const size_t current_level = sol->current_level;
-  const size_t current_index = sol->sorted_sol_indexes[current_level];
-  const size_t n_patterns_first_level = sol->sol_patterns_num[current_index];
+  const size_t current_level = sol->num_placed;
+  const size_t current_index = sol->sorted_pieces_idxs[current_level];
+  const size_t n_patterns_first_level = sol->num_piece_positions[current_index];
   board_t problem = sol->problem;
 
-  solutions_t *sol_works = calloc(sizeof(solutions_t), n_patterns_first_level);
+  solver_t *sol_works = calloc(sizeof(solver_t), n_patterns_first_level);
   if (sol_works == NULL) {
     return MEMORY_ERROR;
   }
 
   for (size_t i = 0; i < n_patterns_first_level; i++) {
     // Copy base
-    memcpy(&sol_works[i], sol, sizeof(solutions_t));
+    memcpy(&sol_works[i], sol, sizeof(solver_t));
 
     // Give each an individual solutions buffer
     sol_works[i].solutions =
@@ -537,13 +519,17 @@ status_t solve_parallel(solutions_t *sol) {
 
     for (int j = 0; j < sol->n_pieces; j++) {
       size_t nearest_mul8 =
-          ((sol_works[i].sol_patterns_num[j] + 8 - 1) / 8) * 8;
+          ((sol_works[i].num_piece_positions[j] + 8 - 1) / 8) * 8;
 
       piece_t *buffers =
           aligned_alloc(CACHE_LINE_SIZE, 2 * nearest_mul8 * sizeof(piece_t));
 
-      sol_works[i].sol_partials[j] = buffers;
-      sol_works[i].candidate_pattern[j] = buffers + nearest_mul8;
+      if (buffers == NULL) {
+        printf("Failed to allocate viable array.\n");
+        return MEMORY_ERROR;
+      }
+      sol_works[i].viable_pieces[j] = buffers;
+      sol_works[i].placed_viable_pieces[j] = buffers + nearest_mul8;
     }
 
     if (sol_works[i].solutions == NULL) {
@@ -554,19 +540,13 @@ status_t solve_parallel(solutions_t *sol) {
 
 #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < n_patterns_first_level; i++) {
-    if ((sol_works[i].sol_patterns[current_index][i] & problem) == 0) {
+    if ((sol_works[i].piece_positions[current_index][i] & problem) == 0) {
       sol_works[i].solution_stack[current_index] =
-          sol_works[i].sol_patterns[current_index][i];
+          sol_works[i].piece_positions[current_index][i];
 
-      sol_works[i].current_level++;
-
-#ifdef USE_SIMD
-      solve_rec_simd(&sol_works[i],
-                     sol_works[i].sol_patterns[current_index][i] | problem);
-#else
       solve_rec(&sol_works[i],
-                sol_works[i].sol_patterns[current_index][i] | problem);
-#endif
+                sol_works[i].piece_positions[current_index][i] | problem,
+                sol->num_placed + 1);
     }
   }
 
@@ -598,7 +578,7 @@ status_t solve_parallel(solutions_t *sol) {
            sizeof(solution_t) * sol_works[i].num_solutions);
 
     for (int j = 0; j < sol->n_pieces; j++) {
-      free(sol_works[i].sol_partials[j]);
+      free(sol_works[i].viable_pieces[j]);
     }
 
     free(sol_works[i].solutions);

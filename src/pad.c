@@ -24,7 +24,7 @@ enum puzzle_mode {
 int main(int argc, char *argv[]) {
   problem_t problem;
   status_t ret;
-  solutions_t sol;
+  solver_t sol;
   struct solution_restrictions restrictions = {true, true};
   enum puzzle_mode mode = NONE_PUZZLE;
   int arg_i = 0;
