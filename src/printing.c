@@ -208,6 +208,24 @@ void print_piece_board(piece_t p, const problem_t *problem, int color) {
   printf("\n");
 }
 
+void print_partial_solution_single(const board_t board, const piece_t piece) {
+  piece_t bit = 0x8000000000000000;
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if (bit & piece) {
+        print_color_square(0);
+      } else if (bit & board) {
+        print_color_square(1);
+      } else {
+        printf("[]");
+      }
+      bit >>= 1;
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
 void print_partial_solution(const piece_location_t *pieces, size_t n_p,
                             const problem_t *problem) {
   piece_t bit = 0x8000000000000000;

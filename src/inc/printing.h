@@ -25,3 +25,4 @@ void print_color(const char *text, int c);
 void print_rgb(const char *text, int r, int g, int b);
 
 int get_piece_line(piece_t p, int color, int line, char *buffer);
+void print_partial_solution_single(const board_t board, const piece_t piece);
