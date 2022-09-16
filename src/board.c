@@ -308,15 +308,15 @@ bool check_holes_simd_double(board_t board) {
   const uint32_t *p_cross = DOUBLE_HOLE_CROSSES_VERTICAL;
 
   // Load Masks
-  __m256i vec_upper_masks = _mm256_stream_load_si256((__m256i *)p_masks);
-  __m256i vec_upper_cross = _mm256_stream_load_si256((__m256i *)p_cross);
+  __m256i vec_upper_masks = _mm256_load_si256((__m256i *)p_masks);
+  __m256i vec_upper_cross = _mm256_load_si256((__m256i *)p_cross);
 
-  __m256i vec_middle_masks = _mm256_stream_load_si256((__m256i *)(p_masks + 8));
-  __m256i vec_middle_cross = _mm256_stream_load_si256((__m256i *)(p_cross + 8));
+  __m256i vec_middle_masks = _mm256_load_si256((__m256i *)(p_masks + 8));
+  __m256i vec_middle_cross = _mm256_load_si256((__m256i *)(p_cross + 8));
 
   // Load Lower Masks
-  __m256i vec_lower_masks = _mm256_stream_load_si256((__m256i *)(p_masks + 16));
-  __m256i vec_lower_cross = _mm256_stream_load_si256((__m256i *)(p_cross + 16));
+  __m256i vec_lower_masks = _mm256_load_si256((__m256i *)(p_masks + 16));
+  __m256i vec_lower_cross = _mm256_load_si256((__m256i *)(p_cross + 16));
 
   // Select Rows
   __m256i vec_sel_row0 = _mm256_and_si256(vec_upper_problem, vec_upper_masks);
@@ -394,16 +394,16 @@ bool check_holes_single(board_t board) {
   const uint32_t *p_crosses = SINGLE_HOLE_CROSSES;
 
   // Load Upper Masks
-  __m256i vec_upper_masks = _mm256_stream_load_si256((__m256i *)p_masks);
-  __m256i vec_upper_crosses = _mm256_stream_load_si256((__m256i *)p_crosses);
+  __m256i vec_upper_masks = _mm256_load_si256((__m256i *)p_masks);
+  __m256i vec_upper_crosses = _mm256_load_si256((__m256i *)p_crosses);
 
   // Skip first row for Lower Masks
   p_masks += 8;
   p_crosses += 8;
 
   // Load Lower Masks
-  __m256i vec_lower_masks = _mm256_stream_load_si256((__m256i *)p_masks);
-  __m256i vec_lower_crosses = _mm256_stream_load_si256((__m256i *)p_crosses);
+  __m256i vec_lower_masks = _mm256_load_si256((__m256i *)p_masks);
+  __m256i vec_lower_crosses = _mm256_load_si256((__m256i *)p_crosses);
 
   size_t row = 0;
   do {
@@ -443,8 +443,8 @@ bool check_holes_single(board_t board) {
     vec_upper_crosses = vec_lower_crosses;
 
     // Load new lower masks
-    vec_lower_masks = _mm256_stream_load_si256((__m256i *)p_masks);
-    vec_lower_crosses = _mm256_stream_load_si256((__m256i *)p_crosses);
+    vec_lower_masks = _mm256_load_si256((__m256i *)p_masks);
+    vec_lower_crosses = _mm256_load_si256((__m256i *)p_crosses);
   } while (1);
 #else
 #error "Cant use Check holes without SIMD"
