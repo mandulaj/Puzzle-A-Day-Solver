@@ -5,16 +5,16 @@
 
 #include <stdio.h>
 
-void printBin(uint64_t b) {
-  for (int i = 63; i >= 0; i--) {
-    printf("%2d ", i);
-  }
-  printf("\n");
-  for (int i = 63; i >= 0; i--) {
-    printf("%2d ", (b >> i) & 0x01);
-  }
-  printf("\n");
-}
+// void printBin(uint64_t b) {
+//   for (int i = 63; i >= 0; i--) {
+//     printf("%2d ", i);
+//   }
+//   printf("\n");
+//   for (int i = 63; i >= 0; i--) {
+//     printf("%2ld ", (b >> i) & 0x01);
+//   }
+//   printf("\n");
+// }
 
 void get_date(board_t b, size_t *position_1, size_t *position_2) {
   b = ~b;
