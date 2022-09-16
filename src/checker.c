@@ -41,8 +41,8 @@ int main() {
       size_t pos1 = day_location(day);
       size_t pos2 = month_location(month);
 
-      uint32_t total_solutions =
-          sol.date_solutions[pos1][pos2] + sol.date_solutions[pos2][pos1];
+      uint32_t total_solutions = sol.date_solutions[pos1 * 64 + pos2] +
+                                 sol.date_solutions[pos2 * 64 + pos1];
 
       printf("%d/%d - %d solutions\n", month, day, total_solutions);
       total += total_solutions;

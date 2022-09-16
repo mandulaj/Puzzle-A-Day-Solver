@@ -78,8 +78,11 @@ int cmpfunc(const void *a, const void *b, void *args) {
 status_t init_all_dates_solution(solver_t *sol, const problem_t *problem,
                                  struct solution_restrictions restrictions) {
   status_t res = init_partial_solution(sol, problem, restrictions, NULL, 0);
-  memset(sol->date_solutions, 0x00, sizeof(sol->date_solutions));
-  return res;
+  sol->date_solutions = calloc(64 * 64, sizeof(*sol->date_solutions));
+  if (sol->date_solutions == NULL)
+    return ERROR;
+  else
+    return res;
 }
 
 status_t init_partial_solution(solver_t *sol, const problem_t *problem,
@@ -104,6 +107,7 @@ status_t init_partial_solution(solver_t *sol, const problem_t *problem,
   }
 
   sol->problem = problem->problem;
+  sol->date_solutions = NULL;
   sol->num_solutions = 0;
   sol->num_placed = 0;
   sol->n_pieces = problem->n_pieces; // Number of pieces left
@@ -214,6 +218,9 @@ status_t destroy_solutions(solver_t *sol) {
     free(sol->piece_positions[i]); // Release all buffers
   }
   free(sol->solutions);
+  if (sol->date_solutions != NULL) {
+    free(sol->date_solutions);
+  }
   return STATUS_OK;
 }
 
@@ -259,7 +266,7 @@ status_t add_date_solution(solver_t *sol, board_t b) {
   } else {
     // printf("%ld, %ld\n", pos1, pos2);
     // print_raw_color(b, 0);
-    sol->date_solutions[pos1][pos2]++;
+    sol->date_solutions[pos1 * 64 + pos2]++;
   }
   // printf("%d/%d\n", month, day);
 
@@ -656,8 +663,8 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
     for (int pos1 = 0; pos1 < 64; pos1++)
       for (int pos2 = 0; pos2 < 64; pos2++) {
 
-        sol->date_solutions[pos1][pos2] +=
-            sol_works[i].date_solutions[pos1][pos2];
+        sol->date_solutions[pos1 * 64 + pos2] +=
+            sol_works[i].date_solutions[pos1 * 64 + pos2];
       }
 
     for (int j = 0; j < sol->n_pieces; j++) {
