@@ -40,3 +40,4 @@ void free_hole_checker(struct hole_checker *hc);
 // bool check_holes(board_t board, struct hole_checker *hc);
 bool check_holes(board_t board);
 void print_hole_checker(struct hole_checker *hc);
+void get_date(board_t b, size_t *position_1, size_t *position_2);

@@ -457,8 +457,10 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
   status_t ret;
 
   piece_t *p_patterns = sol->piece_positions[current_index];
-  piece_t *p_partials = sol->placed_viable_pieces[current_index];
-  // piece_t *p_partials_idx = sol->sol_partials_idxs[current_index];
+  piece_t *p_placed_viable = sol->placed_viable_pieces[current_index];
+  __builtin_prefetch(p_patterns);
+
+  const size_t num_positions = sol->num_piece_positions[current_index];
 
   size_t matches = 0;
 
@@ -467,9 +469,10 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   __m256i vec_zero = _mm256_set1_epi64x(0);
 
-  for (size_t i = 0; i < sol->num_piece_positions[current_index]; i += 4) {
+  for (size_t i = 0; i < num_positions; i += 4) {
 
     __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
+    __builtin_prefetch(p_patterns + 4);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
 
@@ -517,10 +520,11 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
       __m128i bytevec = _mm_cvtsi64_si128(wanted_indices);
       __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
 
-      __m256i filt_partials = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
+      __m256i filt_placed_viable =
+          _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
 
-      _mm256_storeu_si256((__m256i *)p_partials, filt_partials);
-      p_partials += num_matches;
+      _mm256_storeu_si256((__m256i *)p_placed_viable, filt_placed_viable);
+      p_placed_viable += num_matches;
       matches += num_matches;
     }
 
@@ -531,10 +535,8 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
 
   __m512i vec_problem = _mm512_set1_epi64(problem);
   __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
-  __m512i vec_idx = _mm512_set_epi64(7, 6, 5, 4, 3, 2, 1, 0);
-  __m512i vec_eights = _mm512_set1_epi64(8);
 
-  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 8) {
+  for (size_t i = 0; i < num_positions; i += 8) {
 
     __m512i vec_patterns = _mm512_stream_load_si512((__m256i *)p_patterns);
 
@@ -559,34 +561,26 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
       int num_matches = __popcntd(mask);
       __m512i vec_pp_or = _mm512_or_si512(vec_problem, vec_patterns);
 
-      _mm512_mask_compressstoreu_epi64(p_partials, mask, vec_pp_or);
-      _mm512_mask_compressstoreu_epi64(p_partials_idx, mask, vec_idx);
+      _mm512_mask_compressstoreu_epi64(p_placed_viable, mask, vec_pp_or);
 
-      p_partials += num_matches;
-      p_partials_idx += num_matches;
+      p_placed_viable += num_matches;
       matches += num_matches;
     }
 
     p_patterns += 8;
-    vec_idx = _mm512_add_epi64(vec_idx, vec_eights);
   }
 
 #else
 #error "Cant Use SIMD without AVX support"
 #endif
 
-  p_partials = sol->placed_viable_pieces[current_index];
-  // p_partials_idx = sol->sol_partials_idxs[current_index];
+  p_placed_viable = sol->placed_viable_pieces[current_index];
 
-  for (int i = 0; i < matches; i++) {
-    // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
-    // print_piece(p_partials[i], current_level);
+  if (current_level < sol->n_pieces - 1) {
+    for (int i = 0; i < matches; i++) {
 
-    // sol->sol_pattern_index[current_index] = p_partials_idx[i];
-
-    if (current_level < sol->n_pieces - 1) {
       // printf("Checking Holes\n");
-      ret = enum_rec_simd(sol, p_partials[i], current_level + 1);
+      ret = enum_rec_simd(sol, p_placed_viable[i], current_level + 1);
       // printf("Holes passed, recursing\n");
       // printf("Done recursing %d\n", ret);
 
@@ -597,10 +591,10 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
         printf("Catching error\n");
         return ret;
       }
-
-    } else {
-      // printf("Found Solution\n");
-      ret = add_date_solution(sol, p_partials[i]);
+    }
+  } else {
+    for (int i = 0; i < matches; i++) {
+      ret = add_date_solution(sol, p_placed_viable[i]);
       if (ret) {
         if (ret == WARNING)
           break;
