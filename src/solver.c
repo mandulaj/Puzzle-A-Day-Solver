@@ -17,6 +17,9 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
 #ifdef SORT_PATTERNS
 
 int cmpfunc(const void *a, const void *b, void *args) {
@@ -230,82 +233,6 @@ status_t push_solution(solver_t *sol) {
   return STATUS_OK;
 }
 
-/*
-__attribute__((unused)) static status_t solve_rec_simd_old(solver_t *sol,
-                                                           board_t problem) {
-  const size_t current_level = sol->current_level;
-  const size_t current_index = sol->sorted_sol_indexes[current_level];
-
-  status_t ret;
-
-  __m256i vec_problem = _mm256_set1_epi64x(problem);
-  __m256i vec_zero = _mm256_set1_epi64x(0x0000000000000000);
-
-  piece_t pp_and_buffer[4] __attribute__((aligned(CACHE_LINE_SIZE)));
-  piece_t pp_or_buffer[4] __attribute__((aligned(CACHE_LINE_SIZE)));
-
-  piece_t *p_patterns = sol->sol_patterns[current_index];
-
-  for (size_t i = 0; i < sol->sol_patterns_num[current_index]; i += 4) {
-
-    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
-
-    __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
-
-    // Set to 0xFFFF.. if any is zero
-    __m256i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
-
-    // If any was zero, test will be false and we check them one at a time
-    if (!_mm256_testz_si256(vec_test_zero, vec_test_zero)) {
-
-      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
-
-      _mm256_store_si256((__m256i *)&pp_and_buffer, vec_pp_and);
-
-      _mm256_store_si256((__m256i *)&pp_or_buffer, vec_pp_or);
-
-      for (size_t j = 0; j < 4; j++) {
-
-        if (pp_and_buffer[j] == 0) {
-          sol->solution_stack[current_index] = p_patterns[j];
-
-          if (pp_or_buffer[j] == 0xFFFFFFFFFFFFFFFF) {
-            ret = push_solution(sol);
-            if (ret) {
-              if (ret == WARNING)
-                break;
-              return ret;
-            }
-
-            sol->current_level--;
-            return STATUS_OK; // We are at the end, we will not fit anywhere
-                              // else
-          } else {
-            if (check_holes(pp_or_buffer[j])) {
-              sol->current_level++;
-              ret = solve_rec_simd_old(sol, pp_or_buffer[j]);
-              if (ret) {
-                if (ret == WARNING) {
-                  break;
-                }
-                printf("Catching error\n");
-                return ret;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    p_patterns += 4;
-  }
-
-  if (current_level > 0)
-    sol->current_level--;
-
-  return STATUS_OK;
-}
-*/
 static status_t solve_rec(solver_t *sol, board_t problem,
                           size_t current_level) {
 
@@ -313,10 +240,9 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   status_t ret;
 
   const piece_t *p_patterns = sol->piece_positions[current_index];
-  __builtin_prefetch(p_patterns);
-
   piece_t *p_viable = sol->viable_pieces[current_index];
   piece_t *p_placed_viable = sol->placed_viable_pieces[current_index];
+  __builtin_prefetch(p_patterns);
 
   const size_t num_positions = sol->num_piece_positions[current_index];
 
@@ -347,7 +273,6 @@ static status_t solve_rec(solver_t *sol, board_t problem,
 
     int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
     if (mask) {
-
       int num_matches = __popcntd(mask);
       __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
       // 1 1 0 1
@@ -450,13 +375,13 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   p_viable = sol->viable_pieces[current_index];
   p_placed_viable = sol->placed_viable_pieces[current_index];
 
-  for (int i = 0; i < matches; i++) {
-    // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
-    // print_piece(p_partials[i], current_level);
+  if (likely(current_level + 1 < sol->n_pieces)) {
+    for (int i = 0; i < matches; i++) {
+      // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
+      // print_piece(p_partials[i], current_level);
 
-    sol->solution_stack[current_index] = p_viable[i];
+      sol->solution_stack[current_index] = p_viable[i];
 
-    if (current_level + 1 < sol->n_pieces) {
       if (check_holes(p_placed_viable[i])) {
         ret = solve_rec(sol, p_placed_viable[i], current_level + 1);
 
@@ -468,16 +393,17 @@ static status_t solve_rec(solver_t *sol, board_t problem,
           return ret;
         }
       }
-    } else {
+    }
+  } else {
+    for (int i = 0; i < matches; i++) {
+      sol->solution_stack[current_index] = p_viable[i];
+
       ret = push_solution(sol);
       if (ret) {
         if (ret == WARNING)
           break;
         return ret;
       }
-
-      return STATUS_OK; // We are at the end, we will not fit anywhere
-                        // else
     }
   }
 
