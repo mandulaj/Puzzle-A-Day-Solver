@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS_release = -O3
-CFLAGS_debug = -O0 -g
+CFLAGS_release = -O3 -fomit-frame-pointer
+CFLAGS_debug = -O0 -g -fno-omit-frame-pointer  
 BUILD=release
 ARCH=native
 USE_AVX=avx2

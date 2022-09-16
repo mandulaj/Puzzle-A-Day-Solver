@@ -242,24 +242,25 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   const size_t current_index = sol->sorted_pieces_idxs[current_level];
   status_t ret;
 
+  const size_t num_positions = sol->num_piece_positions[current_index];
   const piece_t *p_patterns = sol->piece_positions[current_index];
+  __builtin_prefetch(p_patterns);
+  const piece_t *p_patterns_end = p_patterns + num_positions;
+  size_t matches = 0;
+
   piece_t *p_viable = sol->viable_pieces[current_index];
   piece_t *p_placed_viable = sol->placed_viable_pieces[current_index];
-  __builtin_prefetch(p_patterns);
-
-  const size_t num_positions = sol->num_piece_positions[current_index];
-
-  size_t matches = 0;
 
 #if defined(SIMD_AVX2)
 
   const __m256i vec_problem = _mm256_set1_epi64x(problem);
   const __m256i vec_zero = _mm256_set1_epi64x(0);
 
-  for (size_t i = 0; i < num_positions; i += 4) {
+  do {
 
-    __builtin_prefetch(p_patterns + 4);
     __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
+    p_patterns += 4;
+    __builtin_prefetch(p_patterns);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
 
@@ -318,8 +319,7 @@ static status_t solve_rec(solver_t *sol, board_t problem,
       matches += num_matches;
     }
 
-    p_patterns += 4;
-  }
+  } while (p_patterns < p_patterns_end);
 
 #elif defined(SIMD_AVX512)
 
