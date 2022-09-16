@@ -35,6 +35,7 @@ const problem_t problem_types[] = {
     {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
+     .n_holes = 2,
      .piece_position_num = {48, 80, 82, 96, 151, 154, 154, 196},
      .pieces = {0xE0E0000000000000, 0x8080E00000000000, 0x20E0800000000000,
                 0xA0E0000000000000, 0x80F0000000000000, 0x20F0000000000000,
@@ -52,6 +53,7 @@ const problem_t problem_types[] = {
     {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
+     .n_holes = 2,
      .piece_position_num = {48, 80, 82, 96, 151, 154, 154, 196},
      .pieces = {0xE0E0000000000000, 0x8080E00000000000, 0x20E0800000000000,
                 0xA0E0000000000000, 0x80F0000000000000, 0x20E0200000000000,
@@ -68,6 +70,7 @@ const problem_t problem_types[] = {
     {.blank = WEEKDAYS_BLANK,
      .reverse_lookup = reverse_lookup_weekdays,
      .n_pieces = 10,
+     .n_holes = 3,
      .piece_position_num = {55, 100, 102, 102, 118, 122, 191, 194, 240, 242},
      .pieces = {0xF000000000000000, 0x8080E00000000000, 0x20E0800000000000,
                 0x20E0200000000000, 0xA0E0000000000000, 0x60C0000000000000,
@@ -86,6 +89,7 @@ const problem_t problem_types[] = {
     {.blank = EMPTY_BLANK,
      .reverse_lookup = reverse_lookup_generic,
      .n_pieces = 11,
+     .n_holes = 0,
      .piece_position_num = {512, 512, 512, 512, 512, 512, 512, 512, 512, 512,
                             512},
      .pieces = {0xF0B0800000000000, 0xF090000000000000, 0xC0E0600000000000,
@@ -108,6 +112,7 @@ const problem_t problem_types[] = {
     {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
+     .n_holes = 2,
      .piece_position_num = {512, 512, 512, 512, 512, 512, 512, 512},
      .pieces = {0xE0E0000000000000, 0xC0E0000000000000, 0xC0E0000000000000,
                 0xA0E0000000000000, 0x80F0000000000000, 0xC0E0000000000000,
@@ -123,6 +128,7 @@ const problem_t problem_types[] = {
     {.blank = STANDARD_BLANK,
      .reverse_lookup = reverse_lookup_standard,
      .n_pieces = 8,
+     .n_holes = 2,
      .piece_position_num = {48, 80, 96, 150, 151, 154, 196, 198},
      .pieces = {0xE0E0000000000000, 0xE020200000000000, 0xA0E0000000000000,
                 0xC0F0000000000000, 0x10F0000000000000, 0x40F0000000000000,
@@ -142,6 +148,7 @@ int parse_standard_problem(FILE *fp, problem_t *p) {
   p->reverse_lookup = reverse_lookup_standard;
   p->blank = STANDARD_BLANK;
   p->n_pieces = 0;
+  p->n_holes = 2;
 
   char *line = NULL;
   size_t len = 0;
@@ -298,6 +305,17 @@ status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
 status_t make_empty_problem_standard(problem_t *prob) {
 
   memcpy(prob, &problem_types[STANDARD_PROBLEM_INDEX],
+         sizeof(problem_t)); // Copy problem from template
+
+  prob->problem = prob->blank;
+  return STATUS_OK;
+}
+status_t make_empty_problem(problem_t *prob, size_t index) {
+  if (index >= sizeof(problem_types) / sizeof(*problem_types)) {
+    return ERROR;
+  }
+
+  memcpy(prob, &problem_types[index],
          sizeof(problem_t)); // Copy problem from template
 
   prob->problem = prob->blank;

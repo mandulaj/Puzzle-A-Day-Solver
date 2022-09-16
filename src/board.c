@@ -16,30 +16,21 @@
 //   printf("\n");
 // }
 
-void get_date(board_t b, size_t *position_1, size_t *position_2) {
+void get_date(board_t b, uint8_t *positions, size_t *n_positions) {
   b = ~b;
-  // printBin(b);
-  // printf("%lx, popcont: %lld\n", b, __popcntq(b));
-  *position_1 = 1000;
-  *position_2 = 1000;
 
-  if (__popcntq(b) != 2) {
-    return;
+  size_t n_pos = 0;
+  while (__popcntq(b) && n_pos < 3) {
+    size_t pos = __builtin_ctzl(b);
+
+    b ^= (uint64_t)0x1 << pos;
+
+    *positions++ = (uint8_t)pos;
+    n_pos++;
   }
 
-  uint64_t pos1 = __builtin_ctzl(b);
-
-  b ^= (uint64_t)0x1 << pos1;
-  // printBin((uint64_t)0x1 << pos1);
-
-  // printBin(b);
-  uint64_t pos2 = __builtin_ctzl(b);
-
-  // printf("POsitions: %d, %d\n", pos1, pos2);
-  *position_1 = pos1; // The bits are reversed
-  *position_2 = pos2;
+  *n_positions = n_pos;
 }
-
 void print_raw(uint64_t pattern) {
 
   for (int i = 0; i < 8; i++) {

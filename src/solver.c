@@ -17,9 +17,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define likely(x) __builtin_expect(!!(x), 1)
-#define unlikely(x) __builtin_expect(!!(x), 0)
-
 #ifdef SORT_PATTERNS
 
 int cmpfunc(const void *a, const void *b, void *args) {
@@ -78,7 +75,15 @@ int cmpfunc(const void *a, const void *b, void *args) {
 status_t init_all_dates_solution(solver_t *sol, const problem_t *problem,
                                  struct solution_restrictions restrictions) {
   status_t res = init_partial_solution(sol, problem, restrictions, NULL, 0);
-  sol->date_solutions = calloc(64 * 64, sizeof(*sol->date_solutions));
+
+  if (sol->n_holes == 2)
+    sol->num_dates = 64 * 64;
+  else if (sol->n_holes == 3)
+    sol->num_dates = 64 * 64 * 64;
+  else
+    return ERROR;
+
+  sol->date_solutions = calloc(sol->num_dates, sizeof(*sol->date_solutions));
   if (sol->date_solutions == NULL)
     return ERROR;
   else
@@ -110,6 +115,8 @@ status_t init_partial_solution(solver_t *sol, const problem_t *problem,
   sol->date_solutions = NULL;
   sol->num_solutions = 0;
   sol->num_placed = 0;
+  sol->n_holes = problem->n_holes;
+  sol->num_dates = 0;
   sol->n_pieces = problem->n_pieces; // Number of pieces left
 
   // Go through all pieces
@@ -256,19 +263,29 @@ status_t push_solution(solver_t *sol) {
 
 status_t add_date_solution(solver_t *sol, board_t b) {
   // Expand solutions buffer if needed
-  // printf("Found solution %ld\n", sol->num_solutions);
-  size_t pos1;
-  size_t pos2;
-  get_date(b, &pos1, &pos2);
+  uint8_t positions[3] = {255, 255, 255};
+  size_t n_positions = 0;
+  size_t offset = 0;
+  get_date(b, positions, &n_positions);
 
-  if (pos1 == 1000 || pos2 == 1000) {
-    // invalid date
-  } else {
-    // printf("%ld, %ld\n", pos1, pos2);
-    // print_raw_color(b, 0);
-    sol->date_solutions[pos1 * 64 + pos2]++;
-  }
-  // printf("%d/%d\n", month, day);
+  if (n_positions == 2) {
+    if (positions[0] < 64 && positions[1] < 64) {
+      offset = (size_t)positions[0] * 64 + (size_t)positions[1];
+    } else {
+      return ERROR;
+    }
+
+  } else if (n_positions == 3) {
+    if (positions[0] < 64 && positions[1] < 64 && positions[2] < 64) {
+      offset = (size_t)positions[0] * 64 * 64 + (size_t)positions[1] * 64 +
+               (size_t)positions[2];
+    } else {
+      return ERROR;
+    }
+  } else
+    return ERROR;
+
+  sol->date_solutions[offset]++;
 
   return STATUS_OK;
 }
@@ -435,13 +452,12 @@ static status_t solve_rec(solver_t *sol, board_t problem,
       }
     }
   } else {
+    // Should only be 1
     for (int i = 0; i < matches; i++) {
       sol->solution_stack[current_index] = p_viable[i];
 
       ret = push_solution(sol);
       if (ret) {
-        if (ret == WARNING)
-          break;
         return ret;
       }
     }
@@ -578,12 +594,7 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
 
   if (current_level < sol->n_pieces - 1) {
     for (int i = 0; i < matches; i++) {
-
-      // printf("Checking Holes\n");
       ret = enum_rec_simd(sol, p_placed_viable[i], current_level + 1);
-      // printf("Holes passed, recursing\n");
-      // printf("Done recursing %d\n", ret);
-
       if (ret) {
         if (ret == WARNING) {
           break;
@@ -594,7 +605,9 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
     }
   } else {
     for (int i = 0; i < matches; i++) {
+
       ret = add_date_solution(sol, p_placed_viable[i]);
+
       if (ret) {
         if (ret == WARNING)
           break;
@@ -632,10 +645,9 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
           ((sol_works[i].num_piece_positions[j] + 8 - 1) / 8) * 8;
 
       piece_t *buffers =
-          aligned_alloc(CACHE_LINE_SIZE, 2 * nearest_mul8 * sizeof(piece_t));
+          aligned_alloc(CACHE_LINE_SIZE, nearest_mul8 * sizeof(piece_t));
 
-      sol_works[i].viable_pieces[j] = buffers;
-      sol_works[i].placed_viable_pieces[j] = buffers + nearest_mul8;
+      sol_works[i].placed_viable_pieces[j] = buffers;
 
       if (buffers == NULL) {
         printf("Failed to allocate solutions array.\n");
@@ -644,7 +656,8 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
     }
 
     sol_works[i].date_solutions =
-        calloc(64 * 64, sizeof(*sol_works[i].date_solutions));
+        calloc(sol->num_dates, sizeof(*sol_works[i].date_solutions));
+
     if (sol_works[i].date_solutions == NULL) {
       printf("Failed to allocate date_solutions array.\n");
       return MEMORY_ERROR;
@@ -665,15 +678,12 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
     // Increase buffer if required
     sol->num_solutions += sol_works[i].num_solutions;
 
-    for (int pos1 = 0; pos1 < 64; pos1++)
-      for (int pos2 = 0; pos2 < 64; pos2++) {
-
-        sol->date_solutions[pos1 * 64 + pos2] +=
-            sol_works[i].date_solutions[pos1 * 64 + pos2];
-      }
+    for (size_t pos = 0; pos < sol->num_dates; pos++) {
+      sol->date_solutions[pos] += sol_works[i].date_solutions[pos];
+    }
 
     for (int j = 0; j < sol->n_pieces; j++) {
-      free(sol_works[i].viable_pieces[j]);
+      free(sol_works[i].placed_viable_pieces[j]);
     }
     free(sol_works[i].date_solutions);
   }
