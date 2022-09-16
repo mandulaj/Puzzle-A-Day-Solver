@@ -62,7 +62,9 @@ status_t destroy_solutions(solver_t *sol);
 
 status_t push_solution(solver_t *sol);
 
+status_t enumerate_solutions_parallel(solver_t *sol);
 status_t enumerate_solutions(solver_t *sol);
+
 status_t solve_parallel(solver_t *sol);
 status_t solve(solver_t *sol);
 

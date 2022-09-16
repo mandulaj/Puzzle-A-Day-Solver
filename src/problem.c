@@ -294,6 +294,15 @@ status_t make_problem_standard(problem_t *prob, uint32_t pos1, uint32_t pos2) {
       prob->blank | ((board_t)0x01 << pos1) | ((board_t)0x01 << pos2);
   return STATUS_OK;
 }
+
+status_t make_empty_problem_standard(problem_t *prob) {
+
+  memcpy(prob, &problem_types[STANDARD_PROBLEM_INDEX],
+         sizeof(problem_t)); // Copy problem from template
+
+  prob->problem = prob->blank;
+  return STATUS_OK;
+}
 status_t make_problem_t(problem_t *prob, uint32_t pos1, uint32_t pos2) {
   if (pos1 >= 64 || pos2 >= 64 || pos1 == pos2) {
     return WRONG_INPUT;

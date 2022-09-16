@@ -71,3 +71,5 @@ status_t make_problem_faceup8(problem_t *prob, uint32_t pos1, uint32_t pos2);
 
 status_t make_problem_nPcs(problem_t *prob, const piece_t *pieces, size_t n_pcs,
                            uint32_t pos1, uint32_t pos2);
+
+status_t make_empty_problem_standard(problem_t *prob);
