@@ -11,16 +11,6 @@
 #include <string.h>
 #include <unistd.h>
 
-enum puzzle_mode {
-  NONE_PUZZLE,
-  STANDARD_PUZZLE,
-  CUSTOM_PIECES,
-  T_PUZZLE,
-  WEEKEND_PUZZLE,
-  GENERIC8x8_PUZZLE,
-  FACEUP8_PUZZEL
-};
-
 int main(int argc, char *argv[]) {
   problem_t problem;
   status_t ret;
@@ -79,7 +69,7 @@ int main(int argc, char *argv[]) {
       file_path = argv[arg_i] + 2;
     } else if ((mode == NONE_PUZZLE || mode == STANDARD_PUZZLE) &&
                strcmp(argv[arg_i], "fu8") == 0) {
-      mode = FACEUP8_PUZZEL;
+      mode = FACEUP8_PUZZLE;
     } else {
       piece_location_t *ploc = placed_pieces + n_placed_pieces;
       int temp_flip;
@@ -140,7 +130,7 @@ int main(int argc, char *argv[]) {
       printf("%s\n", buffer);
     }
     break;
-  case FACEUP8_PUZZEL:
+  case FACEUP8_PUZZLE:
     printf("Face-Up Optimized 8-Unique Puzzel\n");
     ret = make_problem_faceup8(&problem, locations[0], locations[1]);
     break;

@@ -22,6 +22,15 @@
 #define WEEKDAYS_BLANK                                                         \
   (0b0000001100000011000000010000000100000001000000010000000111110001)
 
+enum puzzle_mode {
+  NONE_PUZZLE,
+  STANDARD_PUZZLE,
+  CUSTOM_PIECES,
+  T_PUZZLE,
+  WEEKEND_PUZZLE,
+  GENERIC8x8_PUZZLE,
+  FACEUP8_PUZZLE
+};
 typedef struct problem_t {
   // Blank board
   board_t blank;
