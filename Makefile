@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS_release = -O3 -fomit-frame-pointer
+CFLAGS_release = -O3 -fomit-frame-pointer -g
 CFLAGS_debug = -O0 -g -fno-omit-frame-pointer  
 BUILD=release
 ARCH=native
@@ -39,7 +39,10 @@ statistics: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BU
 
 .PHONY: benchmark
 benchmark: statistics
-	@bash -c "for i in {1..${N_BENCHMARKS}}; do time ./statistics > /dev/null; done"
+	@echo "Statistics"
+	@bash -c "TIMEFORMAT='real:%Es user:%Us sys:%Ss'; for i in {1..${N_BENCHMARKS}}; do time ./statistics noprint; done"
+	@echo "Checker"
+	@bash -c "TIMEFORMAT='real:%Es user:%Us sys:%Ss'; for i in {1..${N_BENCHMARKS}}; do time ./checker > /dev/null; done"
 
 .PHONY: test
 test: statistics
