@@ -625,6 +625,9 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
   board_t problem = sol->problem;
 
   solver_t *sol_works = calloc(sizeof(solver_t), n_patterns_first_level);
+  if (sol_works == NULL) {
+    return MEMORY_ERROR;
+  }
 
   for (size_t i = 0; i < n_patterns_first_level; i++) {
     // Copy base
@@ -637,22 +640,30 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
       piece_t *buffers =
           aligned_alloc(CACHE_LINE_SIZE, 2 * nearest_mul8 * sizeof(piece_t));
 
+      sol_works[i].viable_pieces[j] = buffers;
+      sol_works[i].placed_viable_pieces[j] = buffers + nearest_mul8;
+
       if (buffers == NULL) {
         printf("Failed to allocate solutions array.\n");
         return MEMORY_ERROR;
       }
-      sol_works[i].viable_pieces[j] = buffers;
-      sol_works[i].placed_viable_pieces[j] = buffers + nearest_mul8;
     }
 
-    sol_works[i].piece_positions[current_index][i] & problem;
+    sol_works[i].date_solutions =
+        calloc(64 * 64, sizeof(*sol_works[i].date_solutions));
+    if (sol_works[i].date_solutions == NULL) {
+      printf("Failed to allocate date_solutions array.\n");
+      return MEMORY_ERROR;
+    }
   }
 
 #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < n_patterns_first_level; i++) {
-    enum_rec_simd(&sol_works[i],
-                  problem | sol_works[i].piece_positions[current_index][i],
-                  current_level + 1);
+    if ((sol_works[i].piece_positions[current_index][i] & problem) == 0) {
+      enum_rec_simd(&sol_works[i],
+                    problem | sol_works[i].piece_positions[current_index][i],
+                    current_level + 1);
+    }
   }
 
   for (size_t i = 0; i < n_patterns_first_level; i++) {
@@ -668,8 +679,9 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
       }
 
     for (int j = 0; j < sol->n_pieces; j++) {
-      free(sol_works[i].piece_positions[j]);
+      free(sol_works[i].viable_pieces[j]);
     }
+    free(sol_works[i].date_solutions);
   }
   free(sol_works);
 
