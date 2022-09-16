@@ -253,8 +253,8 @@ static status_t solve_rec(solver_t *sol, board_t problem,
 
 #if defined(SIMD_AVX2)
 
-  __m256i vec_problem = _mm256_set1_epi64x(problem);
-  __m256i vec_zero = _mm256_set1_epi64x(0);
+  const __m256i vec_problem = _mm256_set1_epi64x(problem);
+  const __m256i vec_zero = _mm256_set1_epi64x(0);
 
   for (size_t i = 0; i < num_positions; i += 4) {
 
@@ -323,8 +323,8 @@ static status_t solve_rec(solver_t *sol, board_t problem,
 
 #elif defined(SIMD_AVX512)
 
-  __m512i vec_problem = _mm512_set1_epi64(problem);
-  __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
+  const __m512i vec_problem = _mm512_set1_epi64(problem);
+  const __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
 
   for (size_t i = 0; i < num_positions; i += 8) {
 
