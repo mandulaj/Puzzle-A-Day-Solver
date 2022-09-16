@@ -37,6 +37,7 @@ typedef struct problem_t {
 
   // Problem
   board_t problem;
+  size_t n_holes;
 
   const char **reverse_lookup;
   size_t n_pieces;
@@ -73,3 +74,4 @@ status_t make_problem_nPcs(problem_t *prob, const piece_t *pieces, size_t n_pcs,
                            uint32_t pos1, uint32_t pos2);
 
 status_t make_empty_problem_standard(problem_t *prob);
+status_t make_empty_problem(problem_t *prob, size_t index);

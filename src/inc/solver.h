@@ -25,6 +25,7 @@ typedef struct solver_t {
   // Number of pieces available
   size_t n_pieces;
   size_t num_placed;
+  size_t n_holes;
 
   // Array current stack of solutions pattern
   piece_t solution_stack[MAX_PIECES];
@@ -43,6 +44,7 @@ typedef struct solver_t {
   size_t face_down_solutions;
   solution_t *solutions;
 
+  size_t num_dates;
   uint32_t *date_solutions;
 
 } solver_t;
