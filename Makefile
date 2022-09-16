@@ -5,6 +5,8 @@ BUILD=release
 ARCH=native
 USE_AVX=avx2
 
+N_BENCHMARKS=5
+
 ifeq ($(USE_AVX), avx2)
 	AVX_FLAGS=-mavx2 -mno-avx512f
 endif
@@ -37,7 +39,7 @@ statistics: $(BUILD_DIR)/solver.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BU
 
 .PHONY: benchmark
 benchmark: statistics
-	@bash -c "for i in {1..5}; do time ./statistics > /dev/null; done"
+	@bash -c "for i in {1..${N_BENCHMARKS}}; do time ./statistics > /dev/null; done"
 
 .PHONY: test
 test: statistics
