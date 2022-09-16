@@ -116,6 +116,9 @@ status_t init_partial_solution(solver_t *sol, const problem_t *problem,
           return INVALID_POSITION;
         }
 
+        // Add piece to solution stack
+        sol->solution_stack[i] = p;
+
         // Allocate both piece buffers at the same time
         piece_t *buffers =
             aligned_alloc(CACHE_LINE_SIZE, (4 * sizeof(piece_t) * 3));
