@@ -310,17 +310,38 @@ static status_t solve_rec(solver_t *sol, board_t problem,
 
   const __m256i vec_problem = _mm256_set1_epi64x(problem);
   const __m256i vec_zero = _mm256_set1_epi64x(0);
+  __m256i vec_pp_or;
+  __m256i filt_viable;
+  __m256i filt_placed_viable;
+
+  __m128i bytevec;
+  __m256i shufmask;
+
+  int num_matches;
+  uint64_t expanded_mask;
+
+  uint64_t wanted_indices;
+
+  const uint64_t packing_pattern = 0x001000100010001;
+
+  const uint64_t identity_indices =
+      0x0706050403020100; // the identity shuffle for vpermps, packed to one
+                          // index per byte
 
   do {
 
-    __m256i vec_patterns = _mm256_load_si256((__m256i *)p_patterns);
+    __m256i vec_patterns1 = _mm256_load_si256((__m256i *)p_patterns);
+    p_patterns += 4;
+    __m256i vec_patterns2 = _mm256_load_si256((__m256i *)p_patterns);
     p_patterns += 4;
     __builtin_prefetch(p_patterns);
 
-    __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
+    __m256i vec_pp_and1 = _mm256_and_si256(vec_problem, vec_patterns1);
+    __m256i vec_pp_and2 = _mm256_and_si256(vec_problem, vec_patterns2);
 
     // Set to 0xFFFF.. if any is zero
-    __m256i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
+    __m256i vec_test_zero1 = _mm256_cmpeq_epi64(vec_pp_and1, vec_zero);
+    __m256i vec_test_zero2 = _mm256_cmpeq_epi64(vec_pp_and2, vec_zero);
 
     // printf("%d  ", i);
     // for (int b = 3; b >= 0; b--) {
@@ -330,41 +351,47 @@ static status_t solve_rec(solver_t *sol, board_t problem,
 
     // print_piece(p_patterns[0] | problem, i % 10);
 
-    int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
-    if (likely(mask)) {
-      int num_matches = __popcntd(mask);
-      __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
-      // 1 1 0 1
+    int mask1 = _mm256_movemask_pd((__m256d)vec_test_zero1);
+    int mask2 = _mm256_movemask_pd((__m256d)vec_test_zero2);
 
-      // 11 10 01 00
+    if (likely(mask1)) {
+      num_matches = __popcntd(mask1);
+      vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns1);
 
-      // 11 11 10 00
-
-      uint64_t expanded_mask =
-          _pdep_u64(mask, 0x001000100010001); // unpack each bit to a byte
+      expanded_mask =
+          _pdep_u64(mask1, packing_pattern); // unpack each bit to a byte
       expanded_mask *= 0xFFFF;
 
-      // for (int b = 63; b >= 0; b--) {
-      //   printf("%d", 0x01 & (expanded_mask >> b));
-      // }
-      // printf("\n");
+      wanted_indices = _pext_u64(identity_indices, expanded_mask);
 
-      const uint64_t identity_indices =
-          0x0706050403020100; // the identity shuffle for vpermps, packed to one
-                              // index per byte
-      uint64_t wanted_indices = _pext_u64(identity_indices, expanded_mask);
+      bytevec = _mm_cvtsi64_si128(wanted_indices);
+      shufmask = _mm256_cvtepu8_epi32(bytevec);
 
-      // for (int b = 63; b >= 0; b--) {
-      //   printf("%d", 0x01 & (wanted_indices >> b));
-      // }
-      // printf("\n");
+      filt_viable = _mm256_permutevar8x32_epi32(vec_patterns1, shufmask);
+      filt_placed_viable = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
 
-      __m128i bytevec = _mm_cvtsi64_si128(wanted_indices);
-      __m256i shufmask = _mm256_cvtepu8_epi32(bytevec);
+      _mm256_storeu_si256((__m256i *)p_viable, filt_viable);
+      _mm256_storeu_si256((__m256i *)p_placed_viable, filt_placed_viable);
 
-      __m256i filt_viable = _mm256_permutevar8x32_epi32(vec_patterns, shufmask);
-      __m256i filt_placed_viable =
-          _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
+      p_viable += num_matches;
+      p_placed_viable += num_matches;
+      matches += num_matches;
+    }
+    if (likely(mask2)) {
+      num_matches = __popcntd(mask2);
+      vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns2);
+
+      expanded_mask =
+          _pdep_u64(mask2, packing_pattern); // unpack each bit to a byte
+      expanded_mask *= 0xFFFF;
+
+      wanted_indices = _pext_u64(identity_indices, expanded_mask);
+
+      bytevec = _mm_cvtsi64_si128(wanted_indices);
+      shufmask = _mm256_cvtepu8_epi32(bytevec);
+
+      filt_viable = _mm256_permutevar8x32_epi32(vec_patterns2, shufmask);
+      filt_placed_viable = _mm256_permutevar8x32_epi32(vec_pp_or, shufmask);
 
       _mm256_storeu_si256((__m256i *)p_viable, filt_viable);
       _mm256_storeu_si256((__m256i *)p_placed_viable, filt_placed_viable);
@@ -500,14 +527,6 @@ static status_t enum_rec(solver_t *sol, board_t problem, size_t current_level) {
 
     // Set to 0xFFFF.. if any is zero
     __m256i vec_test_zero = _mm256_cmpeq_epi64(vec_pp_and, vec_zero);
-
-    // printf("%d  ", i);
-    // for (int b = 3; b >= 0; b--) {
-    //   printf("%d ", 0x01 & (mask >> b));
-    // }
-    // printf(" PopCnt: %d\n", __popcntd(mask));
-
-    // print_piece(p_patterns[0] | problem, i % 10);
 
     int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
     if (likely(mask)) {
