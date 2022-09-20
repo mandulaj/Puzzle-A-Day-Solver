@@ -19,7 +19,7 @@
 
 #ifdef SORT_PATTERNS
 
-int cmpfunc(const void *a, const void *b, void *args) {
+static int cmpfunc(const void *a, const void *b, void *args) {
 
   size_t *array = (size_t *)args;
 
@@ -231,7 +231,7 @@ status_t destroy_solutions(solver_t *sol) {
   return STATUS_OK;
 }
 
-status_t push_solution(solver_t *sol) {
+static status_t push_solution(solver_t *sol) {
   // Expand solutions buffer if needed
   // printf("Found solution %ld\n", sol->num_solutions);
   size_t index = sol->num_solutions;
@@ -262,7 +262,7 @@ status_t push_solution(solver_t *sol) {
   return STATUS_OK;
 }
 
-status_t add_date_solution(solver_t *sol, board_t b) {
+static status_t add_date_solution(solver_t *sol, board_t b) {
   // Expand solutions buffer if needed
   uint8_t positions[3] = {255, 255, 255};
   size_t n_positions = 0;
