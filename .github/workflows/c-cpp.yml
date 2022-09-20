@@ -22,8 +22,8 @@ jobs:
     - name: test_avx2
       run: make test  
     - name: make_avx512
-      run: make clean; make USE_AVX=avx512
+      run: lscpu | grep avx512 > /dev/null  && make clean all USE_AVX=avx512 || echo "No AVX512 supported" 
     - name: benchmark_avx512
-      run: make benchmark
+      run: lscpu | grep avx512 > /dev/null  && make benchmark || echo "No AVX512 supported"
     - name: test_avx512
-      run: make test
+      run:  lscpu | grep avx512 > /dev/null  && make test || echo "No AVX512 supported"

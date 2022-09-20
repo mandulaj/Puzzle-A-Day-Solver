@@ -385,7 +385,7 @@ bool check_holes_simd_double(board_t board) {
   }
 
 #else
-#error "Cant use Check holes without SIMD"
+  return true;
 #endif
 }
 
@@ -475,7 +475,7 @@ bool check_holes_single(board_t board) {
     vec_lower_crosses = _mm256_load_si256((__m256i *)p_crosses);
   } while (1);
 #else
-#error "Cant use Check holes without SIMD"
+  return true;
 #endif
 }
 

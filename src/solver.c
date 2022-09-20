@@ -380,9 +380,11 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   const __m512i vec_problem = _mm512_set1_epi64(problem);
   const __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
 
-  for (size_t i = 0; i < num_positions; i += 8) {
+  do {
 
     __m512i vec_patterns = _mm512_stream_load_si512((__m256i *)p_patterns);
+    p_patterns += 8;
+    __builtin_prefetch(p_patterns);
 
     __m512i vec_pp_and = _mm512_and_si512(vec_problem, vec_patterns);
 
@@ -413,26 +415,27 @@ static status_t solve_rec(solver_t *sol, board_t problem,
       matches += num_matches;
     }
 
-    p_patterns += 8;
-  }
+  } while (p_patterns < p_patterns_end);
 
 #else
-  for (size_t i = 0; i < num_positions; i++) {
-    board_t pp_and = p_patterns[i] & problem;
-    board_t pp_or = p_patterns[i] | problem;
+  do {
+    board_t board = *p_patterns++;
+    board_t pp_and = board & problem;
+    board_t pp_or = board | problem;
 
     if (!pp_and) {
       *p_placed_viable++ = pp_or;
-      *p_viable++ = p_patterns[i];
+      *p_viable++ = board;
+      matches++;
     }
-  }
+  } while (p_patterns < p_patterns_end);
 
 #endif
 
   p_viable = sol->viable_pieces[current_index];
   p_placed_viable = sol->placed_viable_pieces[current_index];
 
-  if (likely(current_level + 1 < sol->n_pieces)) {
+  if (current_level + 1 < sol->n_pieces) {
     for (int i = 0; i < matches; i++) {
       // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
       // print_piece(p_partials[i], current_level);
@@ -466,17 +469,18 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   return STATUS_OK;
 }
 
-static status_t enum_rec_simd(solver_t *sol, board_t problem,
-                              size_t current_level) {
+static status_t enum_rec(solver_t *sol, board_t problem, size_t current_level) {
 
   const size_t current_index = sol->sorted_pieces_idxs[current_level];
   status_t ret;
 
-  piece_t *p_patterns = sol->piece_positions[current_index];
-  piece_t *p_placed_viable = sol->placed_viable_pieces[current_index];
-  __builtin_prefetch(p_patterns);
-
   const size_t num_positions = sol->num_piece_positions[current_index];
+
+  piece_t *p_patterns = sol->piece_positions[current_index];
+  __builtin_prefetch(p_patterns);
+  const piece_t *p_patterns_end = p_patterns + num_positions;
+
+  piece_t *p_placed_viable = sol->placed_viable_pieces[current_index];
 
   size_t matches = 0;
 
@@ -485,10 +489,11 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
   __m256i vec_problem = _mm256_set1_epi64x(problem);
   __m256i vec_zero = _mm256_set1_epi64x(0);
 
-  for (size_t i = 0; i < num_positions; i += 4) {
+  do {
 
     __m256i vec_patterns = _mm256_stream_load_si256((__m256i *)p_patterns);
-    __builtin_prefetch(p_patterns + 4);
+    p_patterns += 4;
+    __builtin_prefetch(p_patterns);
 
     __m256i vec_pp_and = _mm256_and_si256(vec_problem, vec_patterns);
 
@@ -544,17 +549,18 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
       matches += num_matches;
     }
 
-    p_patterns += 4;
-  }
+  } while (p_patterns < p_patterns_end);
 
 #elif defined(SIMD_AVX512)
 
   __m512i vec_problem = _mm512_set1_epi64(problem);
   __m512i vec_zero = _mm512_set1_epi64(0x0000000000000000);
 
-  for (size_t i = 0; i < num_positions; i += 8) {
+  do {
 
     __m512i vec_patterns = _mm512_stream_load_si512((__m256i *)p_patterns);
+    p_patterns += 8;
+    __builtin_prefetch(p_patterns);
 
     __m512i vec_pp_and = _mm512_and_si512(vec_problem, vec_patterns);
 
@@ -583,18 +589,26 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
       matches += num_matches;
     }
 
-    p_patterns += 8;
-  }
+  } while (p_patterns < p_patterns_end);
 
 #else
-#error "Cant Use SIMD without AVX support"
+  do {
+    board_t board = *p_patterns++;
+    board_t pp_and = board & problem;
+    board_t pp_or = board | problem;
+
+    if (!pp_and) {
+      *p_placed_viable++ = pp_or;
+      matches++;
+    }
+  } while (p_patterns < p_patterns_end);
 #endif
 
   p_placed_viable = sol->placed_viable_pieces[current_index];
 
   if (current_level < sol->n_pieces - 1) {
     for (int i = 0; i < matches; i++) {
-      ret = enum_rec_simd(sol, p_placed_viable[i], current_level + 1);
+      ret = enum_rec(sol, p_placed_viable[i], current_level + 1);
       if (ret) {
         if (ret == WARNING) {
           break;
@@ -620,7 +634,7 @@ static status_t enum_rec_simd(solver_t *sol, board_t problem,
 }
 
 status_t enumerate_solutions(solver_t *sol) {
-  return enum_rec_simd(sol, sol->problem, sol->num_placed);
+  return enum_rec(sol, sol->problem, sol->num_placed);
 }
 
 status_t enumerate_solutions_parallel(solver_t *sol) {
@@ -667,9 +681,9 @@ status_t enumerate_solutions_parallel(solver_t *sol) {
 #pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < n_patterns_first_level; i++) {
     if ((sol_works[i].piece_positions[current_index][i] & problem) == 0) {
-      enum_rec_simd(&sol_works[i],
-                    problem | sol_works[i].piece_positions[current_index][i],
-                    current_level + 1);
+      enum_rec(&sol_works[i],
+               problem | sol_works[i].piece_positions[current_index][i],
+               current_level + 1);
     }
   }
 
