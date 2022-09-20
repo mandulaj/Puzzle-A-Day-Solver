@@ -213,15 +213,20 @@ status_t destroy_solutions(solver_t *sol) {
 status_t push_solution(solver_t *sol) {
   // Expand solutions buffer if needed
   // printf("Found solution %ld\n", sol->num_solutions);
-  if (sol->num_solutions + 1 >= sol->max_solutions) {
+  sol->num_solutions++;
+
+  if (sol->num_solutions >= sol->max_solutions) {
     sol->max_solutions += SOLUTIONS_BUFFER_SIZE;
     // printf("Increasing solutions buffer size to %ld!\n", sol->max_solutions);
     if (sol->max_solutions > MAX_NUM_SOLUTIONS) {
       printf("Number of solutions over the limit, terminating!\n");
+      sol->num_solutions--;
       return WARNING;
     }
+
     sol->solutions =
         realloc(sol->solutions, sol->max_solutions * sizeof(solution_t));
+
     if (sol->solutions == NULL) {
       printf("Failed to increasing number of solutions buffer!\n");
       exit(1);
@@ -231,7 +236,6 @@ status_t push_solution(solver_t *sol) {
   for (size_t i = 0; i < sol->n_pieces; i++) {
     sol->solutions[sol->num_solutions].pieces[i] = sol->solution_stack[i];
   }
-  sol->num_solutions++;
   // printf("Found solution %ld!\n", sol->num_solutions);
   return STATUS_OK;
 }
@@ -486,16 +490,22 @@ status_t solve_parallel(solver_t *sol) {
 
     // Increase buffer if required
     sol->num_solutions += sol_works[i].num_solutions;
-    if (sol->num_solutions + 1 >= sol->max_solutions) {
-      sol->max_solutions += SOLUTIONS_BUFFER_SIZE;
-      // printf("Increasing solutions buffer size to %ld!\n",
-      // sol->max_solutions);
+
+    if (sol->num_solutions >= sol->max_solutions) {
+      // Assign next multiple of SOLUTIONS_BUFFER_SIZE
+      sol->max_solutions = ((sol->num_solutions + SOLUTIONS_BUFFER_SIZE - 1) /
+                            SOLUTIONS_BUFFER_SIZE) *
+                           SOLUTIONS_BUFFER_SIZE;
+
       if (sol->max_solutions > MAX_NUM_SOLUTIONS) {
         printf("Number of solutions over the limit, terminating!\n");
+        sol->num_solutions -= sol_works[i].num_solutions;
         return WARNING;
       }
+
       sol->solutions =
           realloc(sol->solutions, sol->max_solutions * sizeof(solution_t));
+
       if (sol->solutions == NULL) {
         printf("Failed to increasing number of solutions buffer!\n");
         exit(1);
