@@ -17,3 +17,6 @@ const char *get_error_description(status_t s);
 
 int isNumber(const char s[]);
 uint32_t parse_location(const char *str);
+
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
