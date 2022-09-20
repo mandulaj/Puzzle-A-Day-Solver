@@ -330,7 +330,7 @@ static status_t solve_rec(solver_t *sol, board_t problem,
     // print_piece(p_patterns[0] | problem, i % 10);
 
     int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
-    if (mask) {
+    if (likely(mask)) {
       int num_matches = __popcntd(mask);
       __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
       // 1 1 0 1
@@ -435,7 +435,7 @@ static status_t solve_rec(solver_t *sol, board_t problem,
   p_viable = sol->viable_pieces[current_index];
   p_placed_viable = sol->placed_viable_pieces[current_index];
 
-  if (current_level + 1 < sol->n_pieces) {
+  if (likely(current_level + 1 < sol->n_pieces)) {
     for (int i = 0; i < matches; i++) {
       // printf("Level %d, IDX: %d \n", current_level, p_partials_idx[i]);
       // print_piece(p_partials[i], current_level);
@@ -445,7 +445,7 @@ static status_t solve_rec(solver_t *sol, board_t problem,
       if (check_holes(p_placed_viable[i])) {
         ret = solve_rec(sol, p_placed_viable[i], current_level + 1);
 
-        if (ret) {
+        if (unlikely(ret)) {
           if (ret == WARNING) {
             break;
           }
@@ -460,7 +460,7 @@ static status_t solve_rec(solver_t *sol, board_t problem,
       sol->solution_stack[current_index] = p_viable[i];
 
       ret = push_solution(sol);
-      if (ret) {
+      if (unlikely(ret)) {
         return ret;
       }
     }
@@ -509,7 +509,7 @@ static status_t enum_rec(solver_t *sol, board_t problem, size_t current_level) {
     // print_piece(p_patterns[0] | problem, i % 10);
 
     int mask = _mm256_movemask_pd((__m256d)vec_test_zero);
-    if (mask) {
+    if (likely(mask)) {
 
       int num_matches = __popcntd(mask);
       __m256i vec_pp_or = _mm256_or_si256(vec_problem, vec_patterns);
@@ -606,10 +606,10 @@ static status_t enum_rec(solver_t *sol, board_t problem, size_t current_level) {
 
   p_placed_viable = sol->placed_viable_pieces[current_index];
 
-  if (current_level < sol->n_pieces - 1) {
+  if (likely(current_level + 1 < sol->n_pieces)) {
     for (int i = 0; i < matches; i++) {
       ret = enum_rec(sol, p_placed_viable[i], current_level + 1);
-      if (ret) {
+      if (unlikely(ret)) {
         if (ret == WARNING) {
           break;
         }
@@ -622,7 +622,7 @@ static status_t enum_rec(solver_t *sol, board_t problem, size_t current_level) {
 
       ret = add_date_solution(sol, p_placed_viable[i]);
 
-      if (ret) {
+      if (unlikely(ret)) {
         if (ret == WARNING)
           break;
         return ret;
