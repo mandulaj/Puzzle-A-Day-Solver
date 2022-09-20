@@ -57,4 +57,4 @@ test: statistics
 
 .PHONY: clean
 clean:
-	rm -f *.o build/* pad statistics checker
+	rm -f *.o build/* pad statistics checker analyze_pieces

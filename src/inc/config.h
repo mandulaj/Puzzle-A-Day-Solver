@@ -18,7 +18,6 @@
 
 #define CACHE_LINE_SIZE 64
 
-
 #define __AVX2__ 1
 
 #ifdef USE_SIMD
