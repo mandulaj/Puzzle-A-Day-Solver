@@ -234,6 +234,7 @@ status_t destroy_solutions(solver_t *sol) {
 status_t push_solution(solver_t *sol) {
   // Expand solutions buffer if needed
   // printf("Found solution %ld\n", sol->num_solutions);
+  size_t index = sol->num_solutions;
   sol->num_solutions++;
 
   if (sol->num_solutions >= sol->max_solutions) {
@@ -255,7 +256,7 @@ status_t push_solution(solver_t *sol) {
   }
 
   for (size_t i = 0; i < sol->n_pieces; i++) {
-    sol->solutions[sol->num_solutions].pieces[i] = sol->solution_stack[i];
+    sol->solutions[index].pieces[i] = sol->solution_stack[i];
   }
   // printf("Found solution %ld!\n", sol->num_solutions);
   return STATUS_OK;
