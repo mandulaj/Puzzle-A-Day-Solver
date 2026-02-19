@@ -10,3 +10,9 @@ checker
 *.txt
 
 perf.*
+*.perf
+
+*.html
+*.json
+*.svg
+*.ftf
