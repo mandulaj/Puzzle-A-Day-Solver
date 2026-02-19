@@ -2,7 +2,7 @@
 #include "printing.h"
 #include <immintrin.h>
 #include <x86intrin.h>
-
+#include <stdint.h>
 #include <stdio.h>
 
 // void printBin(uint64_t b) {

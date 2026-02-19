@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS_release = -O3 -fomit-frame-pointer -g
-CFLAGS_debug = -O0 -g -fno-omit-frame-pointer  
+CFLAGS_debug = -O0 -g -fno-omit-frame-pointer
 BUILD=release
 ARCH=native
 USE_AVX=avx2
@@ -12,7 +12,7 @@ ifeq ($(USE_AVX), avx2)
 endif
 
 ifeq ($(USE_AVX), avx512)
-	AVX_FLAGS=-mavx2 -mavx512f	
+	AVX_FLAGS=-mavx2 -mavx512f
 endif
 
 CFLAGS=-Wall -std=c17 ${CFLAGS_${BUILD}} -mbmi2 ${AVX_FLAGS} -march=${ARCH} -fopenmp -I ./src/inc  -Lbuild
